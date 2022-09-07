@@ -1,59 +1,90 @@
 #include <pch.hpp>
 
-int main(int argc, char** argv)
+const uint32_t Width = 800;
+const uint32_t Height = 600;
+
+class HelloTriangleApplication
 {
-  if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    throw std::runtime_error(SDL_GetError());
-  
-
-  SDL_DisplayMode displayData;
-  SDL_GetCurrentDisplayMode(0, &displayData);
-  
-  Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
-  SDL_Window* window = SDL_CreateWindow(
-    "Vulkan Window",
-    200, // pos
-    200,
-    800, // size
-    600,
-    flags
-  );
-
-  if (!window)
-    throw std::runtime_error(SDL_GetError());
-
-  SDL_SetWindowSize(window, 800, 600);
-  //SDL_SetWindowFullscreen(window, 0);
-
-  uint32_t extensionCount = 0;
-  vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-  std::cout << extensionCount << " extensions supported\n";
-
-  glm::mat4 matrix;
-  glm::vec4 vec;
-  auto test = matrix * vec;
-
-  bool running = true;
-  while (running)
+public:
+  void run()
   {
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-      switch (event.type)
-      {
-      case SDL_WINDOWEVENT:
-        switch (event.window.event)
-        {
-        case SDL_WINDOWEVENT_CLOSE:
-          running = false;
-        }
-      }
-    }
+    initWindow();
+    initVulkan();
+    mainLoop();
+    cleanup();
   }
 
-  SDL_DestroyWindow(window);
-  SDL_Quit();
+private:
+  void initWindow()
+  {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+      throw std::runtime_error(SDL_GetError());
 
-  return 0;
+    SDL_DisplayMode displayData;
+    SDL_GetCurrentDisplayMode(0, &displayData);
+  
+    Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN;
+    window = SDL_CreateWindow(
+      "Vulkan",
+      200, // pos
+      200,
+      Width, // size
+      Height,
+      flags
+    );
+
+    if (!window)
+      throw std::runtime_error(SDL_GetError());
+  }
+
+  void initVulkan()
+  {
+
+  }
+
+  void mainLoop()
+  {
+    SDL_Event e;
+	  bool running = true;
+
+	  // main loop
+	  while (running)
+	  {
+		  // Handle events on queue
+		  while (SDL_PollEvent(&e) != 0)
+		  {
+			  // close the window when user clicks the X button or alt-f4s
+			  if (e.type == SDL_QUIT) running = false;
+		  }
+	  }
+  }
+
+  void cleanup()
+  {
+    if (window)
+    {
+      SDL_DestroyWindow(window);
+    }
+
+    SDL_Quit();
+  }
+
+  SDL_Window* window = nullptr;
+};
+
+int main(int argc, char** argv) try
+{
+  HelloTriangleApplication{}.run();
+
+  return EXIT_SUCCESS;
+}
+catch (const std::exception& e)
+{
+  std::cerr << e.what() << std::endl;
+  return EXIT_FAILURE;
+}
+catch (...)
+{
+  std::cerr << "An unknown error has occurred" << std::endl;
+  return EXIT_FAILURE;
 }
