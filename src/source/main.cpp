@@ -222,6 +222,15 @@ private:
       throw std::runtime_error("Failed to create swap chain!");
 
     std::cout << "Swap chain created successfully!\n";
+
+    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+    swapChainImages.resize(imageCount);
+    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+
+    std::cout << "Swain chain images retrieved successfully!\n";
+
+    swapChainImageFormat = surfaceFormat.format;
+    swapChainExtent = extent;
   }
 
   VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities)
@@ -628,6 +637,9 @@ private:
   VkQueue presentQueue;
 
   VkSwapchainKHR swapChain;
+  std::vector<VkImage> swapChainImages;
+  VkFormat swapChainImageFormat;
+  VkExtent2D swapChainExtent;
 };
 
 int main(int argc, char** argv) try
