@@ -104,6 +104,16 @@ class HelloTriangleApplication
     return VK_FALSE;
   }
 
+  struct QueueFamilyIndices
+  {
+    std::optional<uint32_t> graphicsFamily;
+
+    bool isComplete()
+    {
+      return graphicsFamily.has_value();
+    }
+  };
+
 public:
   void run()
   {
@@ -141,21 +151,57 @@ private:
     createInstance();
     setupDebugMessenger();
     pickPhysicalDevice();
+    createLogicalDevice();
   }
 
-  struct QueueFamilyIndices
+  void createLogicalDevice()
   {
-    std::optional<uint32_t> graphicsFamily;
+    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
-    bool isComplete()
+    VkDeviceQueueCreateInfo queueCreateInfo{};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value();
+    queueCreateInfo.queueCount = 1;
+
+    // Vulkan lets you assign priorities to queues to influence the scheduling of command buffer execution using 
+    // floating point numbers between 0.0 and 1.0. This is required even if there is only a single queue:
+    float queuePriority = 1.0f;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkPhysicalDeviceFeatures deviceFeatures{};
+
+    VkDeviceCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = 1;
+
+    createInfo.pEnabledFeatures = &deviceFeatures;
+    createInfo.enabledExtensionCount = 0;
+
+    if (enableValidationLayers)
     {
-      return graphicsFamily.has_value();
+        createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+        createInfo.ppEnabledLayerNames = validationLayers.data();
     }
-  };
+    else
+    {
+        createInfo.enabledLayerCount = 0;
+    }
+
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create logical device!");
+
+    std::cout << "Logical Device created successfully!\n";
+
+    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+    
+    std::cout << "Graphics Queue retrieved successfully!\n";
+  }
 
   QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device)
   {
     QueueFamilyIndices indices;
+
     // Assign index to queue families that could be found
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -215,6 +261,8 @@ private:
 
     if (physicalDevice == VK_NULL_HANDLE)
       throw std::runtime_error("Failed to find a suitable GPU!");
+    
+    std::cout << "Physical Device selected successfully!\n";
   }
 
   void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
@@ -304,6 +352,8 @@ private:
 
     if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
       throw std::runtime_error("Failed to create vkInstance!");
+    
+    std::cout << "Instance created successfully!\n";
   }
 
   void mainLoop()
@@ -325,6 +375,8 @@ private:
 
   void cleanup()
   {
+    vkDestroyDevice(device, nullptr);
+
     if (enableValidationLayers)
     {
       DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
@@ -348,6 +400,8 @@ private:
   VkDebugUtilsMessengerEXT debugMessenger;
   
   VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+  VkDevice device;
+  VkQueue graphicsQueue;
 };
 
 int main(int argc, char** argv) try
