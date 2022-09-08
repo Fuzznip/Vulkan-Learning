@@ -56,6 +56,16 @@ const std::vector<const char*> validationLayers = {
   constexpr bool enableValidationLayers = true;
 #endif
 
+double rollingAverage(double avg, double newSample)
+{
+  constexpr float N = 30.f;
+
+  avg -= avg / N;
+  avg += newSample / N;
+
+  return avg;
+}
+
 bool checkValidationLayerSupport()
 {
   uint32_t layerCount;
@@ -239,6 +249,74 @@ private:
     createSyncObjects();
   }
 
+  void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+  {
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicsQueue);
+
+    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+  }
+
+  void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+  {
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+      throw std::runtime_error("Failed to create buffer!");
+
+    std::cout << "Successfully created buffer!\n";
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+  
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+      throw std::runtime_error("Failed to allocate vertex buffer memory!");
+
+    std::cout << "Successfully allocated buffer memory!\n";
+
+    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+
+    std::cout << "Successfully bound buffer memory!\n";
+  }
+
   uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
   {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -259,39 +337,35 @@ private:
 
   void createVertexBuffer()
   {
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof Vertex * vertices.size();
+    VkDeviceSize bufferSize = sizeof Vertex * vertices.size();
 
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
-      throw std::runtime_error("failed to create vertex buffer!");
-
-    std::cout << "Successfully created vertex buffer!\n";
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
-      throw std::runtime_error("Failed to allocate vertex buffer memory!");
-
-    std::cout << "Successfully allocated vertex buffer memory!\n";
-
-    vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
-
-    std::cout << "Successfully bound vertex buffer memory!\n";
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(
+      bufferSize, 
+      VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+      stagingBuffer, 
+      stagingBufferMemory
+    );
 
     void* data;
-    vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-    memcpy(data, vertices.data(), (size_t) bufferInfo.size);
-    vkUnmapMemory(device, vertexBufferMemory);
+    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, vertices.data(), (size_t)bufferSize);
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    createBuffer(
+      bufferSize, 
+      VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+      vertexBuffer, 
+      vertexBufferMemory
+    );
+
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
 
     std::cout << "Successfully submitted vertex buffer memory!\n";
   }
@@ -1114,10 +1188,12 @@ private:
   {
     SDL_Event e;
 	  bool running = true;
+    int count = 0;
 
 	  // main loop
 	  while (running)
 	  {
+      auto t1 = std::chrono::high_resolution_clock::now();
 		  // Handle events on queue
 		  while (SDL_PollEvent(&e) != 0)
 		  {
@@ -1151,6 +1227,15 @@ private:
 
       if (!minimized)
         drawFrame();
+
+      auto t2 = std::chrono::high_resolution_clock::now();
+
+      auto ms = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
+      fps = rollingAverage(fps, (float) ( 1.0 / ((double)ms.count() / 1000000000.0) ) );
+
+      count = (count + 1) % 1000;
+      if (count == 0)
+        std::cout << "FPS: " << fps << '\n';
 	  }
     
     vkDeviceWaitIdle(device);
@@ -1306,6 +1391,8 @@ private:
 
   bool framebufferResized = false;
   bool minimized = false;
+
+  double fps = 1000.0;
 };
 
 int main(int argc, char** argv) try
