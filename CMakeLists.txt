@@ -14,6 +14,7 @@ set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 
 set(SourceDirectory ${CMAKE_SOURCE_DIR}/src/source)
+set(ShaderDirectory ${CMAKE_SOURCE_DIR}/src/shaders)
 set(ExternalDirectory ${CMAKE_SOURCE_DIR}/src/external)
 
 add_definitions(-DYAML_CPP_STATIC_DEFINE)
@@ -63,7 +64,7 @@ include_directories(SYSTEM
 set(SHADER_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders)
 set(SHADER_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 
-file(GLOB SHADERS
+FILE(GLOB_RECURSE Shaders
   ${SHADER_SOURCE_DIR}/*.vert
   ${SHADER_SOURCE_DIR}/*.frag
   ${SHADER_SOURCE_DIR}/*.comp
@@ -84,7 +85,7 @@ add_custom_command(
   COMMENT "Creating ${SHADER_BINARY_DIR}"
 )
 
-foreach(source IN LISTS SHADERS)
+foreach(source IN LISTS Shaders)
   get_filename_component(FILENAME ${source} NAME)
   add_custom_command(
     COMMAND
@@ -103,14 +104,14 @@ add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
 
 # Include our source directory as include directory
 include_directories(${SourceDirectory})
+include_directories(${ShaderDirectory})
 
-FILE(GLOB_RECURSE Source ${SourceDirectory}/*.cpp)
-FILE(GLOB_RECURSE Header ${SourceDirectory}/*.h ${SourceDirectory}/*.hpp)
+FILE(GLOB_RECURSE Source ${SourceDirectory}/*.cpp ${SourceDirectory}/*.h ${SourceDirectory}/*.hpp)
 
 source_group(TREE ${SourceDirectory} FILES ${Source})
-source_group(TREE ${SourceDirectory} FILES ${Header})
+source_group(TREE ${ShaderDirectory} FILES ${Shaders})
 
-add_executable(Vulkan-Tutorial ${Source} ${Header})
+add_executable(Vulkan-Tutorial ${Source} ${Shaders})
 
 target_link_libraries(Vulkan-Tutorial PUBLIC 
   SDL2main 
