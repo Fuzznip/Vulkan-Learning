@@ -1,5 +1,8 @@
 #pragma once
 
+#pragma warning (disable:26495) // Member variables must always be initialized
+#pragma warning (disable:26812) // Prefer Enum Class over Enum
+
 // SDL
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
