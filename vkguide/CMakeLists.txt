@@ -13,6 +13,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 
+set(SrcDirectory ${CMAKE_SOURCE_DIR}/src)
 set(SourceDirectory ${CMAKE_SOURCE_DIR}/src/source)
 set(ShaderDirectory ${CMAKE_SOURCE_DIR}/src/shaders)
 set(ExternalDirectory ${CMAKE_SOURCE_DIR}/src/external)
@@ -80,12 +81,7 @@ FILE(GLOB_RECURSE Shaders
   ${SHADER_SOURCE_DIR}/*.rmiss
 )
 
-add_custom_command(
-  COMMAND
-    ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY_DIR}
-  OUTPUT ${SHADER_BINARY_DIR}
-  COMMENT "Creating ${SHADER_BINARY_DIR}"
-)
+file(MAKE_DIRECTORY ${SHADER_BINARY_DIR})
 
 foreach(source IN LISTS Shaders)
   get_filename_component(FILENAME ${source} NAME)
@@ -110,8 +106,7 @@ include_directories(${ShaderDirectory})
 
 FILE(GLOB_RECURSE Source ${SourceDirectory}/*.cpp ${SourceDirectory}/*.h ${SourceDirectory}/*.hpp)
 
-source_group(TREE ${SourceDirectory} FILES ${Source})
-source_group(TREE ${ShaderDirectory} FILES ${Shaders})
+source_group(TREE ${SrcDirectory} FILES ${Source} ${Shaders})
 
 add_executable(VkGuide ${Source} ${Shaders})
 

@@ -1,5 +1,4 @@
 #include <pch.hpp>
-
 #include "vk_swapchain.hpp"
 
 void VulkanSwapchain::init(VkPhysicalDevice gpu, VkDevice device, VkSurfaceKHR surface, const Window& window)

@@ -1,5 +1,4 @@
 #include <pch.hpp>
-
 #include "vk_engine.hpp"
 
 #include "core/renderer/vk_initializers.hpp"
@@ -60,7 +59,8 @@ void VulkanEngine::run()
         }
       } break;
       case SDL_KEYUP: {
-
+        if (e.key.keysym.sym == SDLK_SPACE)
+          basicRenderer.swap_pipeline();
       } break;
       default:
         break;

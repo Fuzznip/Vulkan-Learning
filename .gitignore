@@ -351,3 +351,4 @@ MigrationBackup/
 
 [Bb]uild/
 !assets/**
+.vscode

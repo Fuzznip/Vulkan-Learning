@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/window/window.hpp"
+#include "core/renderer/vk_pipeline.hpp"
 #include "core/renderer/vk_swapchain.hpp"
 
 class VulkanRenderer
@@ -9,6 +10,8 @@ public:
   void init(const std::string& appName, const Window& window, bool enableValidationLayers);
 
   void draw(const Window& window);
+
+  void swap_pipeline();
 
   void cleanup();
 
@@ -31,6 +34,10 @@ private:
   // Should this couple with swapchain? Need the imageviews to sync with framebuffers count
   VkRenderPass renderPass;
   std::vector<VkFramebuffer> framebuffers;
+  
+  VkPipeline trianglePipeline;
+	VkPipeline redTrianglePipeline;
+  VkPipelineLayout trianglePipelineLayout;
 
   VkSemaphore presentSemaphore, renderSemaphore;
   VkFence renderFence;
@@ -38,4 +45,6 @@ private:
   VkDebugUtilsMessengerEXT debugMessenger; // Vulkan debug output handle
 
   uint64_t frameNumber = 0;
+
+  int shader = 0;
 };

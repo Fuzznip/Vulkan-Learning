@@ -1,8 +1,8 @@
 #include <pch.hpp>
-
 #include "core/renderer/vk_renderer.hpp"
 
 #include "core/renderer/vk_initializers.hpp"
+#include "core/filesystem/read_file.hpp"
 
 #ifdef NDEBUG
   constexpr bool enableValidationLayers = false;
@@ -142,6 +142,63 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
     VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &presentSemaphore));
     VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderSemaphore));
   }
+
+  // init shader modules
+  {
+    VkShaderModule triVertShader, triFragShader, redTriVertShader, redTriFragShader;
+
+    if (!vkinit::load_shader_module("shaders/colored_triangle.vert.spv", device, triVertShader))
+      std::cout << "Failed to build colored triangle vertex shader\n";
+    
+    if (!vkinit::load_shader_module("shaders/colored_triangle.frag.spv", device, triFragShader))
+      std::cout << "Failed to build colored triangle fragment shader\n";
+    
+    if (!vkinit::load_shader_module("shaders/triangle.vert.spv", device, redTriVertShader))
+      std::cout << "Failed to build red triangle vertex shader\n";
+    
+    if (!vkinit::load_shader_module("shaders/triangle.frag.spv", device, redTriFragShader))
+      std::cout << "Failed to build red triangle fragment shader\n";
+
+    // Build pipeline layout that controls shader input/outputs
+    auto pipelineLayoutInfo = vkinit::pipeline_layout_create_info();
+
+    VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &trianglePipelineLayout));
+
+    // Create graphics pipeline
+    PipelineBuilder builder{
+      .shaderStages = {
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triVertShader),
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triFragShader),
+      },
+      .vertexInputInfo = vkinit::vertex_input_state_create_info(),
+      .inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST),
+      .viewport{ 0.f, 0.f, (float)window.get_width(), (float)window.get_height(), 0.f, 1.f },
+      .scissor{
+        .offset = { 0, 0 },
+        .extent = { window.get_width(), window.get_height() }
+      },
+      .rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL),
+      .colorBlendAttachment = vkinit::color_blend_attachment_state(),
+      .multisampling = vkinit::multisampling_state_create_info(),
+      .pipelineLayout = trianglePipelineLayout
+    };
+
+    trianglePipeline = builder.build_pipeline(device, renderPass);
+
+    builder.shaderStages = {
+      vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, redTriVertShader),
+      vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, redTriFragShader),
+    };
+
+    redTrianglePipeline = builder.build_pipeline(device, renderPass);
+
+    vkDestroyShaderModule(device, triVertShader, nullptr);
+    vkDestroyShaderModule(device, triFragShader, nullptr);
+    vkDestroyShaderModule(device, redTriVertShader, nullptr);
+    vkDestroyShaderModule(device, redTriFragShader, nullptr);
+
+    vkDestroyPipelineLayout(device, trianglePipelineLayout, nullptr);
+  }
 }
 
 void VulkanRenderer::draw(const Window& window)
@@ -189,6 +246,13 @@ void VulkanRenderer::draw(const Window& window)
       };
 
       vkCmdBeginRenderPass(commandBuffer, &renderpassBegin, VK_SUBPASS_CONTENTS_INLINE);
+
+      if(shader)
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
+      else
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, redTrianglePipeline);
+      vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
       vkCmdEndRenderPass(commandBuffer);
     }
     VK_CHECK(vkEndCommandBuffer(commandBuffer));
@@ -231,6 +295,11 @@ void VulkanRenderer::draw(const Window& window)
   frameNumber += 1;
 }
 
+void VulkanRenderer::swap_pipeline()
+{
+  shader ^= 1;
+}
+
 void VulkanRenderer::cleanup()
 {
   constexpr auto timeout = 1000000000; // 1 second (in nanoseconds)
@@ -240,6 +309,9 @@ void VulkanRenderer::cleanup()
 
   vkDestroySemaphore(device, renderSemaphore, nullptr);
   vkDestroySemaphore(device, presentSemaphore, nullptr);
+
+  vkDestroyPipeline(device, trianglePipeline, nullptr);
+  vkDestroyPipeline(device, redTrianglePipeline, nullptr);
 
   vkDestroyCommandPool(device, commandPool, nullptr);
 

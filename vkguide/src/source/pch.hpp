@@ -3,6 +3,7 @@
 #pragma warning (disable:6237)  // Zero and expression is always zero. Expression is never evaluated
 #pragma warning (disable:26495) // Member variables must always be initialized
 #pragma warning (disable:26812) // Prefer Enum Class over Enum
+#pragma warning (disable:8064)
 
 // SDL
 #define SDL_MAIN_HANDLED
