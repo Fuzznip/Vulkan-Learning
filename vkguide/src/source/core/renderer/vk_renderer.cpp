@@ -4,13 +4,21 @@
 
 #include "core/renderer/vk_initializers.hpp"
 
+#ifdef NDEBUG
+  constexpr bool enableValidationLayers = false;
+#else
+  constexpr bool enableValidationLayers = true;
+#endif
+
 void VulkanRenderer::init(const std::string& appName, const Window& window, bool enableValidationLayers)
 {
   vkb::Instance bootstrapInstance = vkb::InstanceBuilder{}
     .set_app_name(appName.c_str())
-    .request_validation_layers(true) // TODO: Only enable validation layers on debug or specific builds instead of default always
+    .request_validation_layers(enableValidationLayers)
     .require_api_version(1, 3, 0)
-    .use_default_debug_messenger() // same here as above ^
+#ifndef NDEBUG
+    .use_default_debug_messenger()
+#endif
     .build() // Can check success value here but if this dont work idk what to tell u brev
     .value();
 
