@@ -28,9 +28,9 @@ add_subdirectory(${ExternalDirectory}/fmt)
 # add_subdirectory(${ExternalDirectory}/tinyobjloader)
 
 # # Header only with CMakeLists
-# add_library(GLM INTERFACE)
+add_library(GLM INTERFACE)
 
-# target_include_directories(GLM SYSTEM INTERFACE ${ExternalDirectory}/glm)
+target_include_directories(GLM SYSTEM INTERFACE ${ExternalDirectory}/glm)
 
 # # Repos with no CMakeLists
 # add_library(IMGUI STATIC)
@@ -58,11 +58,9 @@ add_subdirectory(${ExternalDirectory}/fmt)
 # target_link_libraries(IMGUI PRIVATE SDL2main SDL2-static Vulkan::Vulkan)
 
 # Include directories not added through other targets
-# include_directories(SYSTEM
-  # ${ExternalDirectory}/glm
-  # ${ExternalDirectory}/stb
-  # ${ExternalDirectory}/tinyobjloader
-# )
+include_directories(SYSTEM
+  ${ExternalDirectory}/glm
+)
 
 # Compile shaders on build
 set(SHADER_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders)

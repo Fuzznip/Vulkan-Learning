@@ -3,21 +3,33 @@
 #pragma warning (disable:6237)  // Zero and expression is always zero. Expression is never evaluated
 #pragma warning (disable:26495) // Member variables must always be initialized
 #pragma warning (disable:26812) // Prefer Enum Class over Enum
-#pragma warning (disable:8064)
 
 // SDL
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <SDL_vulkan.h>
 
+// GLM
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/hash.hpp>
+#include <glm/vec4.hpp>
+#include <glm/mat4x4.hpp>
+
 // fmt
-#include "fmt/format.h"
+#include <fmt/format.h>
 
 // Vulkan
 #include <vulkan/vulkan.h>
 
 // vk-bootstrap
 #include <VkBootstrap.h>
+
+// VulkanMemoryAllocator (VMA)
+#include <vk_mem_alloc.h>
 
 // C headers
 #include <cassert>

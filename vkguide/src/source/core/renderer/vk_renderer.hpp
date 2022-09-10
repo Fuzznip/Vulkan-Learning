@@ -1,8 +1,15 @@
 #pragma once
 
 #include "core/window/window.hpp"
+#include "core/renderer/vk_mesh.hpp"
 #include "core/renderer/vk_pipeline.hpp"
 #include "core/renderer/vk_swapchain.hpp"
+
+// Camera data?
+struct MeshPushConstants {
+	glm::vec4 data;
+	glm::mat4 render_matrix;
+};
 
 class VulkanRenderer
 {
@@ -16,6 +23,8 @@ public:
   void cleanup();
 
 private:
+  VmaAllocator allocator;
+
   VkInstance instance;
   VkPhysicalDevice gpu;
   VkDevice device;
@@ -37,7 +46,10 @@ private:
   
   VkPipeline trianglePipeline;
 	VkPipeline redTrianglePipeline;
-  VkPipelineLayout trianglePipelineLayout;
+  VkPipeline meshPipeline;
+  Mesh triangleMesh;
+  VkPipelineLayout pipelineLayout;
+	VkPipelineLayout meshPipelineLayout;
 
   VkSemaphore presentSemaphore, renderSemaphore;
   VkFence renderFence;

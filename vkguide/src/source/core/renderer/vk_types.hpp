@@ -1,5 +1,6 @@
 #pragma once
 
-// vulkan_guide.h : Include file for standard system include files,
-// or project specific include files.
-
+struct AllocatedBuffer {
+    VkBuffer buffer;
+    VmaAllocation allocation;
+};
