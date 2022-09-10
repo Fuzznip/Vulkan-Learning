@@ -31,6 +31,9 @@
 // VulkanMemoryAllocator (VMA)
 #include <vk_mem_alloc.h>
 
+// tiny obj loader
+#include <tiny_obj_loader.h>
+
 // C headers
 #include <cassert>
 #include <cmath>

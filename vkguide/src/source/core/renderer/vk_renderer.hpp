@@ -48,6 +48,7 @@ private:
 	VkPipeline redTrianglePipeline;
   VkPipeline meshPipeline;
   Mesh triangleMesh;
+  Mesh monkeyMesh;
   VkPipelineLayout pipelineLayout;
 	VkPipelineLayout meshPipelineLayout;
 

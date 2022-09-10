@@ -24,4 +24,8 @@ struct Mesh
 	std::vector<Vertex> vertices;
 
 	AllocatedBuffer vertexBuffer;
+
+  void upload(VmaAllocator allocator);
 };
+
+Mesh load_from_obj(const std::string& filepath);

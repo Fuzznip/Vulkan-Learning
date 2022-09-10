@@ -253,32 +253,10 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       Vertex{.position{ 0.f,-1.f, 0.f }, .color{ 0.f, 1.f, 0.f }}
     };
 
-    VkBufferCreateInfo bufferInfo{
-      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-      .pNext = nullptr,
+    monkeyMesh = load_from_obj("assets/monkey_smooth.obj");
 
-      .size = triangleMesh.vertices.size() * sizeof Vertex,
-      .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-    };
-
-    VmaAllocationCreateInfo allocInfo{
-      .usage = VMA_MEMORY_USAGE_CPU_TO_GPU
-    };
-
-    VK_CHECK(vmaCreateBuffer(
-      allocator, 
-      &bufferInfo, 
-      &allocInfo, 
-      &triangleMesh.vertexBuffer.buffer,
-      &triangleMesh.vertexBuffer.allocation,
-      nullptr
-    ));
-
-    // Now that we have a buffer, copy data over into that buffer
-    void* data;
-    vmaMapMemory(allocator, triangleMesh.vertexBuffer.allocation, &data);
-    memcpy(data, triangleMesh.vertices.data(), triangleMesh.vertices.size() * sizeof Vertex);
-    vmaUnmapMemory(allocator, triangleMesh.vertexBuffer.allocation);
+    triangleMesh.upload(allocator);
+    monkeyMesh.upload(allocator);
   }
 }
 
@@ -330,9 +308,6 @@ void VulkanRenderer::draw(const Window& window)
 
       vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, meshPipeline);
 
-      VkDeviceSize offset = 0;
-      vkCmdBindVertexBuffers(commandBuffer, 0, 1, &triangleMesh.vertexBuffer.buffer, &offset);
-
       // Example camera
       glm::vec3 camPos{ 0.f, 0.f, -2.f };
 
@@ -348,8 +323,18 @@ void VulkanRenderer::draw(const Window& window)
       };
 
       vkCmdPushConstants(commandBuffer, meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof MeshPushConstants, &constants);
-
-      vkCmdDraw(commandBuffer, triangleMesh.vertices.size(), 1, 0, 0);
+      
+      VkDeviceSize offset = 0;
+      if (shader)
+      {
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &triangleMesh.vertexBuffer.buffer, &offset);
+        vkCmdDraw(commandBuffer, triangleMesh.vertices.size(), 1, 0, 0);
+      }
+      else
+      {
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &monkeyMesh.vertexBuffer.buffer, &offset);
+        vkCmdDraw(commandBuffer, monkeyMesh.vertices.size(), 1, 0, 0);
+      }
 
       vkCmdEndRenderPass(commandBuffer);
     }
@@ -409,6 +394,7 @@ void VulkanRenderer::cleanup()
   vkDestroySemaphore(device, presentSemaphore, nullptr);
 
   vmaDestroyBuffer(allocator, triangleMesh.vertexBuffer.buffer, triangleMesh.vertexBuffer.allocation);
+  vmaDestroyBuffer(allocator, monkeyMesh.vertexBuffer.buffer, monkeyMesh.vertexBuffer.allocation);
   vmaDestroyAllocator(allocator);
 
   vkDestroyPipelineLayout(device, pipelineLayout, nullptr);

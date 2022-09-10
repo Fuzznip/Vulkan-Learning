@@ -6,7 +6,7 @@ std::optional<std::vector<unsigned char>> read_file(const std::string& filePath)
   std::ifstream file(filePath, std::ios::ate | std::ios::binary);
 
   if(!file.is_open())
-    return {};
+    return std::nullopt;
 
   size_t fileSize = file.tellg();
   std::vector<unsigned char> buffer(fileSize);

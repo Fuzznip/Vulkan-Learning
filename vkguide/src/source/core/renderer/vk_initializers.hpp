@@ -2,8 +2,6 @@
 
 #include "core/renderer/vk_types.hpp"
 
-#define VK_CHECK(x) do { VkResult err = x; if(err) throw std::runtime_error(fmt::format("Detected Vulkan error: {}", err)); } while(0)
-
 namespace vkinit
 {
   [[nodiscard]]

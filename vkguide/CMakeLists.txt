@@ -25,7 +25,7 @@ add_subdirectory(${ExternalDirectory}/SDL)
 add_subdirectory(${ExternalDirectory}/vk-bootstrap)
 add_subdirectory(${ExternalDirectory}/VulkanMemoryAllocator)
 add_subdirectory(${ExternalDirectory}/fmt)
-# add_subdirectory(${ExternalDirectory}/tinyobjloader)
+add_subdirectory(${ExternalDirectory}/tinyobjloader)
 
 # # Header only with CMakeLists
 add_library(GLM INTERFACE)
@@ -60,6 +60,7 @@ target_include_directories(GLM SYSTEM INTERFACE ${ExternalDirectory}/glm)
 # Include directories not added through other targets
 include_directories(SYSTEM
   ${ExternalDirectory}/glm
+  ${ExternalDirectory}/tinyobjloader
 )
 
 # Compile shaders on build
