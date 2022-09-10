@@ -21,6 +21,8 @@ add_definitions(-DYAML_CPP_STATIC_DEFINE)
 
 # Repos with CMakeLists
 add_subdirectory(${ExternalDirectory}/SDL)
+add_subdirectory(${ExternalDirectory}/vk-bootstrap)
+add_subdirectory(${ExternalDirectory}/fmt)
 # add_subdirectory(${ExternalDirectory}/tinyobjloader)
 
 # # Header only with CMakeLists
@@ -130,7 +132,9 @@ target_include_directories(VkGuide PUBLIC
 target_link_libraries(VkGuide PUBLIC 
   SDL2main 
   SDL2-static 
-  Vulkan::Vulkan 
+  Vulkan::Vulkan
+  vk-bootstrap::vk-bootstrap
+  fmt
   # IMGUI
   # spdlog::spdlog
 )

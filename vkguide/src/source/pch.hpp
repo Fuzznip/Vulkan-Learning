@@ -9,8 +9,14 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 
+// fmt
+#include "fmt/format.h"
+
 // Vulkan
 #include <vulkan/vulkan.h>
+
+// vk-bootstrap
+#include <VkBootstrap.h>
 
 // C headers
 #include <cassert>
