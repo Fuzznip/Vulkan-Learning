@@ -25,3 +25,6 @@
 [submodule "vkguide/src/external/fmt"]
 	path = vkguide/src/external/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "vkguide/src/external/VulkanMemoryAllocator"]
+	path = vkguide/src/external/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git

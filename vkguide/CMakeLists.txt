@@ -23,6 +23,7 @@ add_definitions(-DYAML_CPP_STATIC_DEFINE)
 # Repos with CMakeLists
 add_subdirectory(${ExternalDirectory}/SDL)
 add_subdirectory(${ExternalDirectory}/vk-bootstrap)
+add_subdirectory(${ExternalDirectory}/VulkanMemoryAllocator)
 add_subdirectory(${ExternalDirectory}/fmt)
 # add_subdirectory(${ExternalDirectory}/tinyobjloader)
 
@@ -129,9 +130,8 @@ target_link_libraries(VkGuide PUBLIC
   SDL2-static 
   Vulkan::Vulkan
   vk-bootstrap::vk-bootstrap
+  VulkanMemoryAllocator
   fmt
-  # IMGUI
-  # spdlog::spdlog
 )
 
 target_precompile_headers(VkGuide PUBLIC src/source/pch.hpp)
