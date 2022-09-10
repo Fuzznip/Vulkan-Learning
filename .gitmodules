@@ -16,3 +16,6 @@
 [submodule "src/external/imgui"]
 	path = vulkan-tutorial/src/external/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "vkguide/src/external/SDL"]
+	path = vkguide/src/external/SDL
+	url = https://github.com/libsdl-org/SDL.git
