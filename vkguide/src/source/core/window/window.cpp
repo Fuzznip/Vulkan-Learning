@@ -19,6 +19,11 @@ void Window::init(const std::string& title, uint32_t w, uint32_t h)
   height = h;
 }
 
+void Window::set_window_title(const std::string& title)
+{
+  SDL_SetWindowTitle(window, title.c_str());
+}
+
 VkSurfaceKHR Window::create_surface(VkInstance instance) const
 {
   VkSurfaceKHR surface;

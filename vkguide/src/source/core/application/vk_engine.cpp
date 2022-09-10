@@ -10,7 +10,7 @@ void VulkanEngine::init()
   // We initialize SDL and create a window with it. 
   SDL_Init(SDL_INIT_VIDEO);
 
-  window.init(name, 1700, 900);
+  window.init(name, 800, 600);
 
   init_renderer();
   
@@ -31,6 +31,7 @@ void VulkanEngine::run()
 {
   SDL_Event e;
   bool quit = false;
+  double time = 0.0;
 
   // main loop
   while (!quit)
@@ -66,7 +67,19 @@ void VulkanEngine::run()
       }
     }
 
+    auto t1 = std::chrono::high_resolution_clock::now();
     draw();
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
+    auto frametime = ns.count() / 1000000000.0;
+    
+    time += frametime;
+
+    if (time > 1.0)
+    {
+      window.set_window_title(fmt::format("{}: fps ({}ms) frametime ({:.4})", name, (int)(1.0 / frametime), frametime));
+      time = 0.0;
+    }
   }
 }
 
@@ -77,5 +90,5 @@ void VulkanEngine::init_renderer()
 
 void VulkanEngine::draw()
 {
-  // nothing yet
+  basicRenderer.draw(window);
 }

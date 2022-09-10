@@ -22,6 +22,4 @@ private:
   VulkanRenderer basicRenderer;
 
   bool isInitialized = false;
-
-  int frameNumber = 0;
 };

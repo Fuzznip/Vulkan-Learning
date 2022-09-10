@@ -5,6 +5,8 @@ class Window
 public:
   void init(const std::string& title, uint32_t w, uint32_t h);
 
+  void set_window_title(const std::string& title);
+
   VkSurfaceKHR create_surface(VkInstance instance) const;
 
   uint32_t get_width() const { return width; }

@@ -8,6 +8,8 @@ class VulkanRenderer
 public:
   void init(const std::string& appName, const Window& window, bool enableValidationLayers);
 
+  void draw(const Window& window);
+
   void cleanup();
 
 private:
@@ -26,5 +28,14 @@ private:
   VkCommandPool commandPool;
   VkCommandBuffer commandBuffer;
 
+  // Should this couple with swapchain? Need the imageviews to sync with framebuffers count
+  VkRenderPass renderPass;
+  std::vector<VkFramebuffer> framebuffers;
+
+  VkSemaphore presentSemaphore, renderSemaphore;
+  VkFence renderFence;
+
   VkDebugUtilsMessengerEXT debugMessenger; // Vulkan debug output handle
+
+  uint64_t frameNumber = 0;
 };
