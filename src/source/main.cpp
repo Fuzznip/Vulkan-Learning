@@ -459,6 +459,8 @@ private:
         indices.push_back(uniqueVertices[vertex]);
       }
     }
+
+    std::cout << "Loaded model\n";
   }
 
   bool hasStencilComponent(VkFormat format)
@@ -1990,12 +1992,14 @@ private:
 
       auto t2 = std::chrono::high_resolution_clock::now();
 
-      auto ms = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
-      fps = rollingAverage(fps, (float) ( 1.0 / ((double)ms.count() / 1000000000.0) ) );
+      auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
+      fps = 1.0 / ((double)ns.count() / 1000000000.0);
 
       count = (count + 1) % 1000;
       if (count == 0 && printFps)
-        std::cout << "FPS: " << fps << '\n';
+      {
+        std::cout << "FPS: " << fps << " (frame time: " << ns.count() / 1000000.0 << "ms)" << '\n';
+      }
 	  }
     
     vkDeviceWaitIdle(device);
