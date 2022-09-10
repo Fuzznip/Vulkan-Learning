@@ -19,3 +19,9 @@
 [submodule "vkguide/src/external/SDL"]
 	path = vkguide/src/external/SDL
 	url = https://github.com/libsdl-org/SDL.git
+[submodule "vkguide/src/external/vk-bootstrap"]
+	path = vkguide/src/external/vk-bootstrap
+	url = https://github.com/charles-lunarg/vk-bootstrap.git
+[submodule "vkguide/src/external/fmt"]
+	path = vkguide/src/external/fmt
+	url = https://github.com/fmtlib/fmt.git
