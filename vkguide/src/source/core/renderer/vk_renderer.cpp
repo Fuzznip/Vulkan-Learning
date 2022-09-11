@@ -236,20 +236,6 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
   // init graphics pipelines
   {
-    VkShaderModule triVertShader, triFragShader, redTriVertShader, redTriFragShader, meshVertShader, meshFragShader;
-
-    if (!vkinit::load_shader_module("shaders/colored_triangle.vert.spv", device, triVertShader))
-      std::cout << "Failed to build colored triangle vertex shader\n";
-    
-    if (!vkinit::load_shader_module("shaders/colored_triangle.frag.spv", device, triFragShader))
-      std::cout << "Failed to build colored triangle fragment shader\n";
-    
-    if (!vkinit::load_shader_module("shaders/triangle.vert.spv", device, redTriVertShader))
-      std::cout << "Failed to build red triangle vertex shader\n";
-    
-    if (!vkinit::load_shader_module("shaders/triangle.frag.spv", device, redTriFragShader))
-      std::cout << "Failed to build red triangle fragment shader\n";
-
     // Build pipeline layout that controls shader input/outputs
     auto pipelineLayoutInfo = vkinit::pipeline_layout_create_info();
 
@@ -267,10 +253,6 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
     // Create graphics pipeline
     PipelineBuilder builder{
-      .shaderStages = {
-        vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triVertShader),
-        vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triFragShader),
-      },
       .vertexInputInfo = vkinit::vertex_input_state_create_info(),
       .inputAssembly = vkinit::input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST),
       .viewport{ 0.f, 0.f, (float)window.get_width(), (float)window.get_height(), 0.f, 1.f },
@@ -285,45 +267,78 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       .pipelineLayout = pipelineLayout
     };
 
-    trianglePipeline = builder.build_pipeline(device, renderPass);
+    // Triangle pipeline
+    {
+      VkShaderModule triVertShader, triFragShader;
 
-
-    builder.shaderStages = {
-      vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, redTriVertShader),
-      vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, redTriFragShader),
-    };
-
-    redTrianglePipeline = builder.build_pipeline(device, renderPass);
-
-
-    VertexInputDescription vid = Vertex::get_vertex_description();
-
-    builder.vertexInputInfo.vertexAttributeDescriptionCount = vid.attributes.size();
-    builder.vertexInputInfo.pVertexAttributeDescriptions = vid.attributes.data();
-    builder.vertexInputInfo.vertexBindingDescriptionCount = vid.bindings.size();
-    builder.vertexInputInfo.pVertexBindingDescriptions = vid.bindings.data();
-
-    if (!vkinit::load_shader_module("shaders/tri_mesh.vert.spv", device, meshVertShader))
-      std::cout << "Failed to build triangle mesh vertex shader\n";
+      if (!vkinit::load_shader_module("shaders/colored_triangle.vert.spv", device, triVertShader))
+        std::cout << "Failed to build colored triangle vertex shader\n";
     
-    if (!vkinit::load_shader_module("shaders/tri_mesh.frag.spv", device, meshFragShader))
-      std::cout << "Failed to build triangle mesh fragment shader\n";
+      if (!vkinit::load_shader_module("shaders/colored_triangle.frag.spv", device, triFragShader))
+        std::cout << "Failed to build colored triangle fragment shader\n";
 
-    builder.shaderStages = {
-      vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader),
-      vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, meshFragShader),
-    };
-    builder.pipelineLayout = meshPipelineLayout;
+      builder.shaderStages = {
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triVertShader),
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triFragShader),
+      };
 
+      trianglePipeline = builder.build_pipeline(device, renderPass);
+      
+      vkDestroyShaderModule(device, triVertShader, nullptr);
+      vkDestroyShaderModule(device, triFragShader, nullptr);
+    }
 
-    meshPipeline = builder.build_pipeline(device, renderPass);
+    // Red Triangle pipeline
+    {
+      VkShaderModule redTriVertShader, redTriFragShader;
 
-    vkDestroyShaderModule(device, triVertShader, nullptr);
-    vkDestroyShaderModule(device, triFragShader, nullptr);
-    vkDestroyShaderModule(device, redTriVertShader, nullptr);
-    vkDestroyShaderModule(device, redTriFragShader, nullptr);
-    vkDestroyShaderModule(device, meshVertShader, nullptr);
-    vkDestroyShaderModule(device, meshFragShader, nullptr);
+      if (!vkinit::load_shader_module("shaders/triangle.vert.spv", device, redTriVertShader))
+        std::cout << "Failed to build red triangle vertex shader\n";
+    
+      if (!vkinit::load_shader_module("shaders/triangle.frag.spv", device, redTriFragShader))
+        std::cout << "Failed to build red triangle fragment shader\n";
+
+      builder.shaderStages = {
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, redTriVertShader),
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, redTriFragShader),
+      };
+
+      redTrianglePipeline = builder.build_pipeline(device, renderPass);
+
+      vkDestroyShaderModule(device, redTriVertShader, nullptr);
+      vkDestroyShaderModule(device, redTriFragShader, nullptr);
+    }
+
+    // Mesh Pipeline
+    {
+      VertexInputDescription vid = Vertex::get_vertex_description();
+
+      builder.vertexInputInfo.vertexAttributeDescriptionCount = vid.attributes.size();
+      builder.vertexInputInfo.pVertexAttributeDescriptions = vid.attributes.data();
+      builder.vertexInputInfo.vertexBindingDescriptionCount = vid.bindings.size();
+      builder.vertexInputInfo.pVertexBindingDescriptions = vid.bindings.data();
+
+      VkShaderModule meshVertShader, meshFragShader;
+
+      if (!vkinit::load_shader_module("shaders/tri_mesh.vert.spv", device, meshVertShader))
+        std::cout << "Failed to build triangle mesh vertex shader\n";
+    
+      if (!vkinit::load_shader_module("shaders/tri_mesh.frag.spv", device, meshFragShader))
+        std::cout << "Failed to build triangle mesh fragment shader\n";
+
+      builder.shaderStages = {
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader),
+        vkinit::shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, meshFragShader),
+      };
+      builder.pipelineLayout = meshPipelineLayout;
+
+      meshPipeline = builder.build_pipeline(device, renderPass);
+
+      create_material(meshPipeline, meshPipelineLayout, "defaultmesh");
+      
+      vkDestroyShaderModule(device, meshVertShader, nullptr);
+      vkDestroyShaderModule(device, meshFragShader, nullptr);
+    }
   }
 
   // init meshes
@@ -334,10 +349,50 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       Vertex{.position{ 0.f,-1.f, 0.f }, .color{ 0.f, 1.f, 0.f }}
     };
 
-    monkeyMesh = load_from_obj("assets/monkey_smooth.obj");
+    std::filesystem::path p = std::filesystem::current_path() / "assets";
+    monkeyMesh = load_from_obj(p.string() + "\\monkey_smooth.obj", p.string());
 
     triangleMesh.upload(allocator);
     monkeyMesh.upload(allocator);
+
+    // Note that we are copying them. 
+    // Eventually we will delete the hardcoded monkey and triangle meshes, so it's no problem now.
+    meshes["monkey"] = monkeyMesh;
+    meshes["triangle"] = triangleMesh;
+  }
+
+  // init scene
+  {
+    RenderObject monkey{
+      .mesh = get_mesh("monkey"),
+      .mat = get_material("defaultmesh"),
+      .transform = glm::mat4{ 1.f }
+    };
+
+    if(monkey.mesh && monkey.mat)
+      objects.push_back(monkey);
+    else
+      std::cout << "mesh or mat not good lol\n";
+
+    for (int x = -50; x <= 50; ++x)
+    {
+      for (int y = -50; y <= 50; ++y)
+      {
+        auto t = glm::translate(glm::mat4{ 1.f }, glm::vec3{ x, 0.f, y });
+        auto s = glm::scale(glm::mat4{ 1.f }, glm::vec3{ 6.2f, 6.2f, 6.2f });
+
+        RenderObject tri{
+          .mesh = get_mesh("triangle"),
+          .mat = get_material("defaultmesh"),
+          .transform = t * s
+        };
+
+        if (tri.mesh && tri.mat)
+          objects.push_back(tri);
+        else
+          std::cout << "mesh or mat not good lol\n";
+      }
+    }
   }
 }
 
@@ -393,35 +448,7 @@ void VulkanRenderer::draw(const Window& window)
 
       vkCmdBeginRenderPass(commandBuffer, &renderpassBegin, VK_SUBPASS_CONTENTS_INLINE);
 
-      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, meshPipeline);
-
-      // Example camera
-      glm::vec3 camPos{ 0.f, 0.f, -2.f };
-
-      glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
-
-      glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
-      projection[1][1] *= -1;
-
-      glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(frameNumber * 0.4f), glm::vec3(0, 1, 0));
-
-      MeshPushConstants constants{
-        .render_matrix = projection * view * model
-      };
-
-      vkCmdPushConstants(commandBuffer, meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof MeshPushConstants, &constants);
-      
-      VkDeviceSize offset = 0;
-      if (shader)
-      {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &triangleMesh.vertexBuffer.buffer, &offset);
-        vkCmdDraw(commandBuffer, triangleMesh.vertices.size(), 1, 0, 0);
-      }
-      else
-      {
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, &monkeyMesh.vertexBuffer.buffer, &offset);
-        vkCmdDraw(commandBuffer, monkeyMesh.vertices.size(), 1, 0, 0);
-      }
+      draw_objects(commandBuffer, objects.data(), objects.size());
 
       vkCmdEndRenderPass(commandBuffer);
     }
@@ -507,4 +534,69 @@ void VulkanRenderer::cleanup()
   vkDestroySurfaceKHR(instance, surface, nullptr);
   vkb::destroy_debug_utils_messenger(instance, debugMessenger);
   vkDestroyInstance(instance, nullptr);
+}
+
+Material* VulkanRenderer::create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name)
+{
+  auto [iter, success] = materials.insert({ name, { pipeline, layout } });
+  if(success)
+    return &iter->second;
+  return nullptr;
+}
+
+Material* VulkanRenderer::get_material(const std::string& name)
+{
+  if (auto iter = materials.find(name); iter != materials.end())
+    return &iter->second;
+  return nullptr;
+}
+
+Mesh* VulkanRenderer::get_mesh(const std::string& name)
+{
+  if (auto iter = meshes.find(name); iter != meshes.end())
+    return &iter->second;
+  return nullptr;
+}
+
+void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int count)
+{
+  // Example camera
+  glm::vec3 camPos{ 0.f, -6.f, -10.f };
+
+  glm::mat4 view = glm::lookAt(camPos, glm::vec3{ 0.f, 0.f, 0.f }, glm::vec3{ 0.f, 1.f, 0.f });
+
+  glm::mat4 projection = glm::perspective(glm::radians(70.f), 800.f / 600.f, 0.1f, 200.0f);
+  projection[1][1] *= -1; // flip y axis for vulkan
+
+  Mesh* lastMesh = nullptr;
+  Material* lastMat = nullptr;
+  for (int i = 0; i < count; ++i)
+  {
+    RenderObject& obj = first[i];
+
+    if (!obj.mat && !obj.mesh)
+      continue;
+
+    // Only bind pipeline if pipeline is not currently bound
+    if (obj.mat != lastMat)
+    {
+      vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.mat->pipeline);
+      lastMat = obj.mat;
+    }
+
+    MeshPushConstants constants{
+      .render_matrix = projection * view * obj.transform
+    };
+
+    vkCmdPushConstants(commandBuffer, obj.mat->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof MeshPushConstants, &constants);
+    
+    if (obj.mesh != lastMesh)
+    {
+      VkDeviceSize offset = 0;
+      vkCmdBindVertexBuffers(commandBuffer, 0, 1, &monkeyMesh.vertexBuffer.buffer, &offset);
+      lastMesh = obj.mesh;
+    }
+
+    vkCmdDraw(commandBuffer, obj.mesh->vertices.size(), 1, 0, 0);
+  }
 }

@@ -50,7 +50,7 @@ VertexInputDescription Vertex::get_vertex_description()
 // TODO: Fix loading non-triangulated meshes
 // TODO: Fix loading materials
 // TODO: Hook up to logging once implemented
-Mesh load_from_obj(const std::string& filepath)
+Mesh load_from_obj(const std::string& filepath, const std::string& mtlDir)
 {
   Mesh m{};
 
@@ -60,7 +60,7 @@ Mesh load_from_obj(const std::string& filepath)
   
   std::string warn, err;
 
-	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str(), nullptr);
+	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str(), mtlDir.c_str());
 
   if (!warn.empty())
   {

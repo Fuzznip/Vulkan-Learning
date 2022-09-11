@@ -28,4 +28,4 @@ struct Mesh
   void upload(VmaAllocator allocator);
 };
 
-Mesh load_from_obj(const std::string& filepath);
+Mesh load_from_obj(const std::string& filepath, const std::string& mtlDir = "");

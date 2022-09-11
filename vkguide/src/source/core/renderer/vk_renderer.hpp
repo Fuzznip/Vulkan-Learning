@@ -12,6 +12,19 @@ struct MeshPushConstants
 	glm::mat4 render_matrix;
 };
 
+struct Material
+{
+  VkPipeline pipeline;
+  VkPipelineLayout layout;
+};
+
+struct RenderObject
+{
+  Mesh* mesh;
+  Material* mat;
+  glm::mat4 transform;
+};
+
 class VulkanRenderer
 {
 public:
@@ -24,6 +37,12 @@ public:
   void cleanup();
 
 private:
+  Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+  Material* get_material(const std::string& name);
+  Mesh* get_mesh(const std::string& name);
+
+  void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+
   VmaAllocator allocator;
 
   VkInstance instance;
@@ -49,6 +68,10 @@ private:
   // Should this couple with swapchain? Need the imageviews to sync with framebuffers count
   VkRenderPass renderPass;
   std::vector<VkFramebuffer> framebuffers;
+
+  std::vector<RenderObject> objects;
+  std::unordered_map<std::string, Material> materials;
+  std::unordered_map<std::string, Mesh> meshes;
   
   VkPipeline trianglePipeline;
 	VkPipeline redTrianglePipeline;
