@@ -27,6 +27,13 @@ struct RenderObject
   glm::mat4 transform;
 };
 
+struct GPUCameraData
+{
+  alignas(16) glm::mat4 view;
+  alignas(16) glm::mat4 proj;
+  alignas(16) glm::mat4 viewproj;
+};
+
 struct FrameData
 {
   VkSemaphore present, render;
@@ -34,6 +41,10 @@ struct FrameData
 
   VkCommandPool cmdPool;
   VkCommandBuffer cmdBuffer;
+
+  // Buffer that holds a GPUCameraData for use when rendering
+  AllocatedBuffer cameraBuffer;
+  VkDescriptorSet descriptor;
 };
 
 class VulkanRenderer
@@ -58,35 +69,38 @@ private:
 
   void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 
+  FrameData& get_current_frame();
+
+  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+
   VmaAllocator allocator;
 
   VkInstance instance;
   VkPhysicalDevice gpu;
   VkDevice device;
   VkSurfaceKHR surface;
+  VkPhysicalDeviceProperties gpuProperties;
 
   VulkanSwapchain swapchain;
 
+  // Maybe part of render pass class
   VkImageView depthImageView;
   AllocatedImage depthImage;
-
   VkFormat depthFormat;
 
-  // Maybe this union should be its own class? Unsure
   VkQueue graphicsQueue;
   uint32_t graphicsQueueFamily;
 
-  FrameData frames[MaxFramesInFlight];
-  FrameData& get_current_frame();
-
   // Should this couple with swapchain? Need the imageviews to sync with framebuffers count
+  // Or maybe its own render pass class that handles that stuff when we need to remake etc
   VkRenderPass renderPass;
   std::vector<VkFramebuffer> framebuffers;
 
-  std::vector<RenderObject> objects;
-  std::unordered_map<std::string, Material> materials;
-  std::unordered_map<std::string, Mesh> meshes;
+  FrameData frames[MaxFramesInFlight];
   
+  VkDescriptorSetLayout descriptorLayout;
+  VkDescriptorPool descriptorPool;
+   
   VkPipeline trianglePipeline;
 	VkPipeline redTrianglePipeline;
   VkPipeline meshPipeline;
@@ -95,6 +109,10 @@ private:
   Mesh thingMesh;
   VkPipelineLayout pipelineLayout;
 	VkPipelineLayout meshPipelineLayout;
+
+  std::vector<RenderObject> objects;
+  std::unordered_map<std::string, Material> materials;
+  std::unordered_map<std::string, Mesh> meshes;
 
   VkDebugUtilsMessengerEXT debugMessenger; // Vulkan debug output handle
 

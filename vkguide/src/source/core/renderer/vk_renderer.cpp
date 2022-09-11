@@ -36,7 +36,9 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
   vkb::Device gpuDevice = vkb::DeviceBuilder{ selectedGpu }.build().value();
 
   gpu = selectedGpu.physical_device;
+  gpuProperties = selectedGpu.properties;
   std::cout << selectedGpu.name << '\n';
+  std::cout << "The GPU has a minimum buffer alignment of " << gpuProperties.limits.minUniformBufferOffsetAlignment << std::endl;
   device = gpuDevice.device;
 
   graphicsQueue = gpuDevice.get_queue(vkb::QueueType::graphics).value();
@@ -243,23 +245,89 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame.render));
     }
   }
+  
+  // init descriptors
+  {
+    // Uniform buffer binding
+    VkDescriptorSetLayoutBinding binding{
+      .binding = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+      .descriptorCount = 1,
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+    };
+
+    // All our bindings that go into our set
+    VkDescriptorSetLayoutCreateInfo setInfo{
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+      .pNext = nullptr,
+
+      .flags = 0,
+      .bindingCount = 1,
+      .pBindings = &binding,
+    };
+
+    VK_CHECK(vkCreateDescriptorSetLayout(device, &setInfo, nullptr, &descriptorLayout));
+
+    // Create descriptor pool with 10 uniform buffers
+    std::vector<VkDescriptorPoolSize> sizes{
+      VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 },
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo{
+      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+      .pNext = nullptr,
+
+      .flags = 0,
+      .maxSets = 10,
+      .poolSizeCount = (uint32_t)sizes.size(),
+      .pPoolSizes = sizes.data(),
+    };
+
+    VK_CHECK(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool));
+
+    for (int i = 0; i < MaxFramesInFlight; ++i)
+    {
+      frames[i].cameraBuffer = create_buffer(sizeof GPUCameraData, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+      VkDescriptorSetAllocateInfo allocInfo{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = nullptr,
+
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = 1,
+        .pSetLayouts = &descriptorLayout
+      };
+
+      VK_CHECK(vkAllocateDescriptorSets(device, &allocInfo, &frames[i].descriptor));
+
+      // Now populate descriptor set to point to our camera buffer
+      VkDescriptorBufferInfo info{
+        .buffer = frames[i].cameraBuffer.buffer,
+        .offset = 0,
+        .range = sizeof GPUCameraData,
+      };
+
+      VkWriteDescriptorSet write{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .pNext = nullptr,
+
+        .dstSet = frames[i].descriptor,
+        .dstBinding = 0, // We said we are setting binding to 0 so we set here too
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .pBufferInfo = &info,
+      };
+
+      vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+    }
+  }
 
   // init graphics pipelines
   {
     // Build pipeline layout that controls shader input/outputs
     auto pipelineLayoutInfo = vkinit::pipeline_layout_create_info();
 
-    auto meshPipelineLayoutInfo = vkinit::pipeline_layout_create_info();
-    VkPushConstantRange pushConstant{
-      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-      .offset = 0,
-      .size = sizeof MeshPushConstants,
-    };
-    meshPipelineLayoutInfo.pushConstantRangeCount = 1;
-    meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
-
     VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout));
-    VK_CHECK(vkCreatePipelineLayout(device, &meshPipelineLayoutInfo, nullptr, &meshPipelineLayout));
 
     // Create graphics pipeline
     PipelineBuilder builder{
@@ -283,7 +351,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
       if (!vkinit::load_shader_module("shaders/colored_triangle.vert.spv", device, triVertShader))
         std::cout << "Failed to build colored triangle vertex shader\n";
-    
+
       if (!vkinit::load_shader_module("shaders/colored_triangle.frag.spv", device, triFragShader))
         std::cout << "Failed to build colored triangle fragment shader\n";
 
@@ -293,7 +361,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       };
 
       trianglePipeline = builder.build_pipeline(device, renderPass);
-      
+
       vkDestroyShaderModule(device, triVertShader, nullptr);
       vkDestroyShaderModule(device, triFragShader, nullptr);
     }
@@ -304,7 +372,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
       if (!vkinit::load_shader_module("shaders/triangle.vert.spv", device, redTriVertShader))
         std::cout << "Failed to build red triangle vertex shader\n";
-    
+
       if (!vkinit::load_shader_module("shaders/triangle.frag.spv", device, redTriFragShader))
         std::cout << "Failed to build red triangle fragment shader\n";
 
@@ -321,6 +389,20 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
     // Mesh Pipeline
     {
+      auto meshPipelineLayoutInfo = vkinit::pipeline_layout_create_info();
+      VkPushConstantRange pushConstant{
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .offset = 0,
+        .size = sizeof MeshPushConstants,
+      };
+      meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+      meshPipelineLayoutInfo.pushConstantRangeCount = 1;
+
+      meshPipelineLayoutInfo.pSetLayouts = &descriptorLayout;
+      meshPipelineLayoutInfo.setLayoutCount = 1;
+
+      VK_CHECK(vkCreatePipelineLayout(device, &meshPipelineLayoutInfo, nullptr, &meshPipelineLayout));
+
       VertexInputDescription vid = Vertex::get_vertex_description();
 
       builder.vertexInputInfo.vertexAttributeDescriptionCount = vid.attributes.size();
@@ -332,7 +414,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
       if (!vkinit::load_shader_module("shaders/tri_mesh.vert.spv", device, meshVertShader))
         std::cout << "Failed to build triangle mesh vertex shader\n";
-    
+
       if (!vkinit::load_shader_module("shaders/tri_mesh.frag.spv", device, meshFragShader))
         std::cout << "Failed to build triangle mesh fragment shader\n";
 
@@ -345,7 +427,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       meshPipeline = builder.build_pipeline(device, renderPass);
 
       create_material(meshPipeline, meshPipelineLayout, "defaultmesh");
-      
+
       vkDestroyShaderModule(device, meshVertShader, nullptr);
       vkDestroyShaderModule(device, meshFragShader, nullptr);
     }
@@ -540,6 +622,11 @@ void VulkanRenderer::cleanup()
   vkDestroyPipeline(device, redTrianglePipeline, nullptr);
   vkDestroyPipeline(device, meshPipeline, nullptr);
 
+  for (int i = 0; i < MaxFramesInFlight; ++i)
+    vmaDestroyBuffer(allocator, frames[i].cameraBuffer.buffer, frames[i].cameraBuffer.alloc);
+  vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+  vkDestroyDescriptorSetLayout(device, descriptorLayout, nullptr);
+
   vkDestroyRenderPass(device, renderPass, nullptr);
   for(const auto& framebuffer : framebuffers)
     vkDestroyFramebuffer(device, framebuffer, nullptr);
@@ -583,6 +670,17 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
   glm::mat4 projection = glm::perspective(glm::radians(70.f), 800.f / 600.f, 0.1f, 200.0f);
   projection[1][1] *= -1; // flip y axis for vulkan
 
+  GPUCameraData cam{
+    .view = view,
+    .proj = projection,
+    .viewproj = projection * view,
+  };
+
+  void* data;
+  vmaMapMemory(allocator, get_current_frame().cameraBuffer.alloc, &data);
+  memcpy(data, &cam, sizeof GPUCameraData);
+  vmaUnmapMemory(allocator, get_current_frame().cameraBuffer.alloc);
+
   Mesh* lastMesh = nullptr;
   Material* lastMat = nullptr;
   for (int i = 0; i < count; ++i)
@@ -597,10 +695,13 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
     {
       vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.mat->pipeline);
       lastMat = obj.mat;
+
+      // Bind descriptor set when changing pipelines
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.mat->layout, 0, 1, &get_current_frame().descriptor, 0, nullptr);
     }
 
     MeshPushConstants constants{
-      .render_matrix = projection * view * obj.transform
+      .render_matrix = obj.transform
     };
 
     vkCmdPushConstants(cmd, obj.mat->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof MeshPushConstants, &constants);
@@ -619,4 +720,24 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
 FrameData& VulkanRenderer::get_current_frame()
 {
   return frames[frameNumber % MaxFramesInFlight];
+}
+
+AllocatedBuffer VulkanRenderer::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+{
+  VkBufferCreateInfo bufInfo{
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .pNext = nullptr,
+
+    .size = allocSize,
+    .usage = usage
+  };
+
+  VmaAllocationCreateInfo allocInfo{
+    .usage = memoryUsage
+  };
+
+  AllocatedBuffer buf;
+  VK_CHECK(vmaCreateBuffer(allocator, &bufInfo, &allocInfo, &buf.buffer, &buf.alloc, nullptr));
+
+  return buf;
 }
