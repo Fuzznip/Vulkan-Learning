@@ -5,8 +5,9 @@
 #include "core/renderer/vk_pipeline.hpp"
 #include "core/renderer/vk_swapchain.hpp"
 
-// Camera data?
-struct MeshPushConstants {
+// Camera data
+struct MeshPushConstants
+{
 	glm::vec4 data;
 	glm::mat4 render_matrix;
 };
@@ -31,6 +32,11 @@ private:
   VkSurfaceKHR surface;
 
   VulkanSwapchain swapchain;
+
+  VkImageView depthImageView;
+  AllocatedImage depthImage;
+
+  VkFormat depthFormat;
 
   // Maybe this union should be its own class? Unsure
   VkQueue graphicsQueue;

@@ -33,4 +33,13 @@ namespace vkinit
 
   [[nodiscard]]
   VkPipelineLayoutCreateInfo pipeline_layout_create_info();
+
+  [[nodiscard]]
+  VkImageCreateInfo image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+
+  [[nodiscard]]
+  VkImageViewCreateInfo image_view_create_info(VkFormat format, VkImage image, VkImageAspectFlags flags);
+
+  [[nodiscard]]
+  VkPipelineDepthStencilStateCreateInfo depth_stencil_create_info(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
 }

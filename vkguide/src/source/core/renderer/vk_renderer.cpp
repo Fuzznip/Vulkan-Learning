@@ -39,10 +39,45 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
   std::cout << selectedGpu.name << '\n';
   device = gpuDevice.device;
 
-  swapchain.init(gpu, device, surface, window);
-
   graphicsQueue = gpuDevice.get_queue(vkb::QueueType::graphics).value();
   graphicsQueueFamily = gpuDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+  // init vma
+  {
+    VmaAllocatorCreateInfo allocInfo{
+      .physicalDevice = gpu,
+      .device = device,
+      .instance = instance
+    };
+
+    vmaCreateAllocator(&allocInfo, &allocator);
+  }
+
+  // init swapchain
+  {
+    swapchain.init(gpu, device, surface, window);
+    
+    // Create depth target
+    VkExtent3D depthImageExtent{
+      .width = window.get_width(),
+      .height = window.get_height(),
+      .depth = 1
+    };
+
+    depthFormat = VK_FORMAT_D32_SFLOAT;
+
+    VkImageCreateInfo imageInfo = vkinit::image_create_info(depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageExtent);
+    VmaAllocationCreateInfo allocInfo{
+      .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+      .requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+    };
+
+    VK_CHECK(vmaCreateImage(allocator, &imageInfo, &allocInfo, &depthImage.image, &depthImage.alloc, nullptr));
+
+    VkImageViewCreateInfo imageViewInfo = vkinit::image_view_create_info(depthFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &depthImageView));
+  }
 
   // init commands
   {
@@ -57,7 +92,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
   // init render pass
   {
-    // Display image attachment
+    // color attachment
     VkAttachmentDescription colorAttachment{
       .format = swapchain.get_image_format(), // Set format to one needed by swapchain (So we can render it later)
       .samples = VK_SAMPLE_COUNT_1_BIT, // No MSAA
@@ -70,31 +105,82 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 
       .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // Don't care about starting layout
-      .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR // After render pass, layout should be ready to present to swap chain
+      .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR // Final layout should be optimal for presenting to swapchain
     };
 
-    // The reference to the color attachment for our subpass to use
     VkAttachmentReference colorAttachmentRef{
       .attachment = 0, // Index into pAttachments array in parent render pass
       .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL // Set image layout to one optimal for rendering
+    };
+
+    // depth attachment
+    VkAttachmentDescription depthAttachment{
+      .format = depthFormat,
+      .samples = VK_SAMPLE_COUNT_1_BIT, // No MSAA in depth test
+      
+      .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // Clear this attachment on load
+      .storeOp = VK_ATTACHMENT_STORE_OP_STORE, // Keep the attachment stored when renderpass ends
+
+      .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+      .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // Don't care about starting layout
+      .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL // Final layout should be optimal for depth
+    };
+
+    VkAttachmentReference depthAttachmentRef{
+      .attachment = 1,
+      .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
     };
 
     // Our single subpass for this render pass
     VkSubpassDescription subpass{
       .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
       .colorAttachmentCount = 1,
-      .pColorAttachments = &colorAttachmentRef
+      .pColorAttachments = &colorAttachmentRef, // Color attachment
+      .pDepthStencilAttachment = &depthAttachmentRef // Depth attachment
     };
+
+    VkAttachmentDescription attachments[2] = { colorAttachment, depthAttachment };
+    
+    // This dependency set tells Vulkan that the depth attachment in a renderpass cannot be used 
+    // before the previous renderpasses has finished using it.
+    VkSubpassDependency colorDep{
+      .srcSubpass = VK_SUBPASS_EXTERNAL,
+      .dstSubpass = 0,
+
+      .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+
+      .srcAccessMask = 0,
+      .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+    };
+
+    VkSubpassDependency depthDep{
+      .srcSubpass = VK_SUBPASS_EXTERNAL,
+      .dstSubpass = 0,
+
+      .srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+      .dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+
+      .srcAccessMask = 0,
+      .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+    };
+
+    VkSubpassDependency dependencies[2]{ colorDep, depthDep };
 
     VkRenderPassCreateInfo renderPassInfo{
       .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
       .pNext = nullptr,
 
-      .attachmentCount = 1,
-      .pAttachments = &colorAttachment,
+      .attachmentCount = 2,
+      .pAttachments = attachments,
 
       .subpassCount = 1,
-      .pSubpasses = &subpass
+      .pSubpasses = &subpass,
+
+      .dependencyCount = 2,
+      .pDependencies = dependencies
     };
 
     VK_CHECK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
@@ -107,7 +193,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       .pNext = nullptr,
 
       .renderPass = renderPass,
-      .attachmentCount = 1,
+      .attachmentCount = 2,
       .width = window.get_width(),
       .height = window.get_height(),
       .layers = 1
@@ -115,8 +201,13 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
     framebuffers.resize(swapchain.get_image_count());
     for (int i = 0; i < framebuffers.size(); ++i)
-    {
-      framebufferInfo.pAttachments = swapchain.get_image_view(i);
+    {    
+      VkImageView attachments[2]{
+        *swapchain.get_image_view(i),
+        depthImageView,
+      };
+
+      framebufferInfo.pAttachments = attachments;
       VK_CHECK(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffers[i]));
     }
   }
@@ -189,6 +280,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       },
       .rasterizer = vkinit::rasterization_state_create_info(VK_POLYGON_MODE_FILL),
       .colorBlendAttachment = vkinit::color_blend_attachment_state(),
+      .depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL),
       .multisampling = vkinit::multisampling_state_create_info(),
       .pipelineLayout = pipelineLayout
     };
@@ -232,17 +324,6 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
     vkDestroyShaderModule(device, redTriFragShader, nullptr);
     vkDestroyShaderModule(device, meshVertShader, nullptr);
     vkDestroyShaderModule(device, meshFragShader, nullptr);
-  }
-
-  // init vma
-  {
-    VmaAllocatorCreateInfo allocInfo{
-      .physicalDevice = gpu,
-      .device = device,
-      .instance = instance
-    };
-
-    vmaCreateAllocator(&allocInfo, &allocator);
   }
 
   // init meshes
@@ -289,6 +370,12 @@ void VulkanRenderer::draw(const Window& window)
         .color = {{ 0.f, 0.f, std::abs(std::sin(frameNumber / 120.f)), 1.f }}
       };
 
+      VkClearValue depthClear{
+        .depthStencil{ .depth = 1.f }
+      };
+
+      VkClearValue clearValues[2] = { clearColor, depthClear };
+
       VkRenderPassBeginInfo renderpassBegin{
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = nullptr,
@@ -300,8 +387,8 @@ void VulkanRenderer::draw(const Window& window)
           .extent{ swapchain.get_extents() }
         },
 
-        .clearValueCount = 1,
-        .pClearValues = &clearColor
+        .clearValueCount = 2,
+        .pClearValues = clearValues,
       };
 
       vkCmdBeginRenderPass(commandBuffer, &renderpassBegin, VK_SUBPASS_CONTENTS_INLINE);
@@ -393,9 +480,11 @@ void VulkanRenderer::cleanup()
   vkDestroySemaphore(device, renderSemaphore, nullptr);
   vkDestroySemaphore(device, presentSemaphore, nullptr);
 
-  vmaDestroyBuffer(allocator, triangleMesh.vertexBuffer.buffer, triangleMesh.vertexBuffer.allocation);
-  vmaDestroyBuffer(allocator, monkeyMesh.vertexBuffer.buffer, monkeyMesh.vertexBuffer.allocation);
-  vmaDestroyAllocator(allocator);
+  vmaDestroyBuffer(allocator, triangleMesh.vertexBuffer.buffer, triangleMesh.vertexBuffer.alloc);
+  vmaDestroyBuffer(allocator, monkeyMesh.vertexBuffer.buffer, monkeyMesh.vertexBuffer.alloc);
+
+  vkDestroyImageView(device, depthImageView, nullptr);
+  vmaDestroyImage(allocator, depthImage.image, depthImage.alloc);
 
   vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
   vkDestroyPipelineLayout(device, meshPipelineLayout, nullptr);
@@ -411,6 +500,8 @@ void VulkanRenderer::cleanup()
     vkDestroyFramebuffer(device, framebuffer, nullptr);
 
   swapchain.cleanup(device);
+  
+  vmaDestroyAllocator(allocator);
 
   vkDestroyDevice(device, nullptr);
   vkDestroySurfaceKHR(instance, surface, nullptr);

@@ -42,6 +42,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass)
     .pViewportState = &viewportStateCreateInfo,
     .pRasterizationState = &rasterizer,
     .pMultisampleState = &multisampling,
+    .pDepthStencilState = &depthStencil,
     .pColorBlendState = &colorBlendStateCreateInfo,
     .layout = pipelineLayout,
     .renderPass = pass,

@@ -114,6 +114,7 @@ Mesh load_from_obj(const std::string& filepath)
 
 				m.vertices.push_back(new_vert);
 			}
+
 			index_offset += fv;
 		}
 	}
@@ -136,17 +137,17 @@ void Mesh::upload(VmaAllocator allocator)
   };
 
   VK_CHECK(vmaCreateBuffer(
-    allocator, 
-    &bufferInfo, 
-    &allocInfo, 
+    allocator,
+    &bufferInfo,
+    &allocInfo,
     &vertexBuffer.buffer,
-    &vertexBuffer.allocation,
+    &vertexBuffer.alloc,
     nullptr
   ));
 
   // Now that we have a buffer, copy data over into that buffer
   void* data;
-  vmaMapMemory(allocator, vertexBuffer.allocation, &data);
+  vmaMapMemory(allocator, vertexBuffer.alloc, &data);
   memcpy(data, vertices.data(), vertices.size() * sizeof Vertex);
-  vmaUnmapMemory(allocator, vertexBuffer.allocation);
+  vmaUnmapMemory(allocator, vertexBuffer.alloc);
 }
