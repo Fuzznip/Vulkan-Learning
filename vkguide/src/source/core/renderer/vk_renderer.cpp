@@ -250,7 +250,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
   {
     // Uniform buffer binding
     VkDescriptorSetLayoutBinding camBinding = vkinit::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
-    VkDescriptorSetLayoutBinding sceneBinding = vkinit::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+    VkDescriptorSetLayoutBinding sceneBinding = vkinit::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1);
 
     VkDescriptorSetLayoutBinding bindings[] = { camBinding, sceneBinding };
 
@@ -313,11 +313,11 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       // Now populate descriptor set binding 1 to point to our scene buffer
       VkDescriptorBufferInfo sceneInfo{
         .buffer = sceneBuffer.buffer,
-        .offset = pad_uniform_buffer_size(sizeof GPUSceneData) * i, //!!! set offset to our binding (i think?)
+        .offset = 0,
         .range = sizeof GPUSceneData,
       };
 
-      VkWriteDescriptorSet sceneWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, frames[i].descriptor, &sceneInfo, 1);
+      VkWriteDescriptorSet sceneWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, frames[i].descriptor, &sceneInfo, 1);
 
       VkWriteDescriptorSet writes[] = { camWrite, sceneWrite };
 
@@ -712,7 +712,10 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
       lastMat = obj.mat;
 
       // Bind descriptor set when changing pipelines
-      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.mat->layout, 0, 1, &get_current_frame().descriptor, 0, nullptr);
+      // Get uniform offset due to 1 dynamic descriptor set
+      uint32_t dynamicOffset = pad_uniform_buffer_size(sizeof GPUSceneData) * frameIndex;
+      // Need to send 1 offset uint32_t for each dynamic descriptor we have
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, obj.mat->layout, 0, 1, &get_current_frame().descriptor, 1, &dynamicOffset);
     }
 
     MeshPushConstants constants{
