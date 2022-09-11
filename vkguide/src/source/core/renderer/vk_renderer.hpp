@@ -5,6 +5,8 @@
 #include "core/renderer/vk_pipeline.hpp"
 #include "core/renderer/vk_swapchain.hpp"
 
+constexpr uint32_t MaxFramesInFlight = 2;
+
 // Camera data
 struct MeshPushConstants
 {
@@ -23,6 +25,15 @@ struct RenderObject
   Mesh* mesh;
   Material* mat;
   glm::mat4 transform;
+};
+
+struct FrameData
+{
+  VkSemaphore present, render;
+  VkFence fence;
+
+  VkCommandPool cmdPool;
+  VkCommandBuffer cmdBuffer;
 };
 
 class VulkanRenderer
@@ -65,9 +76,8 @@ private:
   VkQueue graphicsQueue;
   uint32_t graphicsQueueFamily;
 
-  // This too? Unsure
-  VkCommandPool commandPool;
-  VkCommandBuffer commandBuffer;
+  FrameData frames[MaxFramesInFlight];
+  FrameData& get_current_frame();
 
   // Should this couple with swapchain? Need the imageviews to sync with framebuffers count
   VkRenderPass renderPass;
@@ -85,9 +95,6 @@ private:
   Mesh thingMesh;
   VkPipelineLayout pipelineLayout;
 	VkPipelineLayout meshPipelineLayout;
-
-  VkSemaphore presentSemaphore, renderSemaphore;
-  VkFence renderFence;
 
   VkDebugUtilsMessengerEXT debugMessenger; // Vulkan debug output handle
 

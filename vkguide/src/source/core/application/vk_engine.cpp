@@ -38,6 +38,7 @@ void VulkanEngine::run()
   // main loop
   while (!quit)
   {
+    auto t1 = std::chrono::high_resolution_clock::now();
     // Handle events on queue
     while (SDL_PollEvent(&e) != 0)
     {
@@ -68,17 +69,17 @@ void VulkanEngine::run()
         if (e.key.keysym.sym == SDLK_SPACE)
         {
           constrainMouse ^= 1;
-          SDL_ShowCursor(!constrainMouse);
+          SDL_SetRelativeMouseMode(constrainMouse ? SDL_TRUE : SDL_FALSE);
         }
       } break;
       case SDL_MOUSEMOTION: {
         if (constrainMouse && SDL_GetWindowFlags(window.window) & SDL_WindowFlags::SDL_WINDOW_INPUT_FOCUS)
         {
           float xDelta = e.motion.xrel;
-          float yDelta = -e.motion.yrel; // might need to flip
+          float yDelta = -e.motion.yrel;
 
-          xDelta *= frametime * 30.f;
-          yDelta *= frametime * 30.f;
+          xDelta *= .3f;
+          yDelta *= .3f;
           
           yaw += xDelta;
           pitch += yDelta;
@@ -118,14 +119,10 @@ void VulkanEngine::run()
     if (keystates[SDL_SCANCODE_Q])
       basicRenderer.camPos += (float)(15.f * frametime) * camUp;
 
-    if(constrainMouse && SDL_GetWindowFlags(window.window) & SDL_WindowFlags::SDL_WINDOW_INPUT_FOCUS)
-      SDL_WarpMouseInWindow(window.window, window.get_width() / 2, window.get_height() / 2);
-
-    auto t1 = std::chrono::high_resolution_clock::now();
     draw();
     auto t2 = std::chrono::high_resolution_clock::now();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1);
-    auto frametime = ns.count() / 1000000000.0;
+    frametime = ns.count() / 1000000000.0;
     
     time += frametime;
 
