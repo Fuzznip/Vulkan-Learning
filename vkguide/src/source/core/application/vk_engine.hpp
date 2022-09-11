@@ -22,4 +22,5 @@ private:
   VulkanRenderer basicRenderer;
 
   bool isInitialized = false;
+  bool constrainMouse = false;
 };

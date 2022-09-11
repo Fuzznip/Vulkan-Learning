@@ -31,6 +31,9 @@ void VulkanEngine::run()
   SDL_Event e;
   bool quit = false;
   double time = 0.0;
+  auto frametime = 0.016;
+          
+  float pitch = 0.0f, yaw = -90.0f;
 
   // main loop
   while (!quit)
@@ -58,14 +61,65 @@ void VulkanEngine::run()
           break;
         }
       } break;
+      case SDL_KEYDOWN: {
+
+      } break;
       case SDL_KEYUP: {
         if (e.key.keysym.sym == SDLK_SPACE)
-          basicRenderer.swap_pipeline();
+        {
+          constrainMouse ^= 1;
+          SDL_ShowCursor(!constrainMouse);
+        }
+      } break;
+      case SDL_MOUSEMOTION: {
+        if (constrainMouse && SDL_GetWindowFlags(window.window) & SDL_WindowFlags::SDL_WINDOW_INPUT_FOCUS)
+        {
+          float xDelta = e.motion.xrel;
+          float yDelta = -e.motion.yrel; // might need to flip
+
+          xDelta *= frametime * 30.f;
+          yDelta *= frametime * 30.f;
+          
+          yaw += xDelta;
+          pitch += yDelta;
+
+          if (pitch > 89.0f)
+            pitch = 89.0f;
+          if (pitch < -89.0f)
+            pitch = -89.0f;
+
+          glm::vec3 direction;
+          direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+          direction.y = sin(glm::radians(pitch));
+          direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+          basicRenderer.camFwd = glm::normalize(direction);
+        }
       } break;
       default:
         break;
       }
     }
+
+    const uint8_t* keystates = SDL_GetKeyboardState(nullptr);
+
+    auto camRight = glm::normalize(glm::cross(basicRenderer.camFwd, glm::vec3{ 0.f, 1.f, 0.f }));
+    auto camUp = glm::normalize(glm::cross(basicRenderer.camFwd, camRight));
+
+    if (keystates[SDL_SCANCODE_W])
+      basicRenderer.camPos += (float)(15.f * frametime) * basicRenderer.camFwd;
+    if (keystates[SDL_SCANCODE_A])
+      basicRenderer.camPos -= (float)(15.f * frametime) * camRight;
+    if (keystates[SDL_SCANCODE_S])
+      basicRenderer.camPos -= (float)(15.f * frametime) * basicRenderer.camFwd;
+    if (keystates[SDL_SCANCODE_D])
+      basicRenderer.camPos += (float)(15.f * frametime) * camRight;
+    if (keystates[SDL_SCANCODE_E])
+      basicRenderer.camPos -= (float)(15.f * frametime) * camUp;
+    if (keystates[SDL_SCANCODE_Q])
+      basicRenderer.camPos += (float)(15.f * frametime) * camUp;
+
+    if(constrainMouse && SDL_GetWindowFlags(window.window) & SDL_WindowFlags::SDL_WINDOW_INPUT_FOCUS)
+      SDL_WarpMouseInWindow(window.window, window.get_width() / 2, window.get_height() / 2);
 
     auto t1 = std::chrono::high_resolution_clock::now();
     draw();

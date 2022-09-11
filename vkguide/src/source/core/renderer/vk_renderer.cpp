@@ -374,9 +374,9 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
     else
       std::cout << "mesh or mat not good lol\n";
 
-    for (int x = -50; x <= 50; ++x)
+    for (int x = -20; x <= 20; ++x)
     {
-      for (int y = -50; y <= 50; ++y)
+      for (int y = -20; y <= 20; ++y)
       {
         auto t = glm::translate(glm::mat4{ 1.f }, glm::vec3{ x, 0.f, y });
         auto s = glm::scale(glm::mat4{ 1.f }, glm::vec3{ 6.2f, 6.2f, 6.2f });
@@ -560,10 +560,7 @@ Mesh* VulkanRenderer::get_mesh(const std::string& name)
 
 void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int count)
 {
-  // Example camera
-  glm::vec3 camPos{ 0.f, -6.f, -10.f };
-
-  glm::mat4 view = glm::lookAt(camPos, glm::vec3{ 0.f, 0.f, 0.f }, glm::vec3{ 0.f, 1.f, 0.f });
+  glm::mat4 view = glm::lookAt(camPos, camPos + camFwd, glm::vec3{ 0.f, 1.f, 0.f });
 
   glm::mat4 projection = glm::perspective(glm::radians(70.f), 800.f / 600.f, 0.1f, 200.0f);
   projection[1][1] *= -1; // flip y axis for vulkan

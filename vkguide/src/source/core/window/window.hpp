@@ -14,7 +14,7 @@ public:
 
   void cleanup();
 
-private:
   SDL_Window* window;
+private:
   uint32_t width, height;
 };

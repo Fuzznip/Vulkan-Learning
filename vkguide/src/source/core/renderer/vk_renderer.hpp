@@ -35,6 +35,10 @@ public:
   void swap_pipeline();
 
   void cleanup();
+  
+////
+  glm::vec3 camPos{ 0.f, -6.f, -10.f };
+  glm::vec3 camFwd{ 0.f, 0.f, -1.f };
 
 private:
   Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
