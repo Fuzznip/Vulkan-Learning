@@ -34,6 +34,15 @@ struct GPUCameraData
   alignas(16) glm::mat4 viewproj;
 };
 
+struct GPUSceneData
+{
+	alignas(16) glm::vec4 fogColor; // w is for exponent
+	alignas(16) glm::vec4 fogDistances; // x for min, y for max, zw unused.
+	alignas(16) glm::vec4 ambientColor;
+	alignas(16) glm::vec4 sunlightDirection; // w for sun power
+	alignas(16) glm::vec4 sunlightColor;
+};
+
 struct FrameData
 {
   VkSemaphore present, render;
@@ -72,6 +81,7 @@ private:
   FrameData& get_current_frame();
 
   AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+  size_t pad_uniform_buffer_size(size_t originalSize) const;
 
   VmaAllocator allocator;
 
@@ -100,6 +110,9 @@ private:
   
   VkDescriptorSetLayout descriptorLayout;
   VkDescriptorPool descriptorPool;
+
+  GPUSceneData scene;
+  AllocatedBuffer sceneBuffer;
    
   VkPipeline trianglePipeline;
 	VkPipeline redTrianglePipeline;

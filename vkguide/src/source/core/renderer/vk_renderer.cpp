@@ -249,12 +249,10 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
   // init descriptors
   {
     // Uniform buffer binding
-    VkDescriptorSetLayoutBinding binding{
-      .binding = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-      .descriptorCount = 1,
-      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-    };
+    VkDescriptorSetLayoutBinding camBinding = vkinit::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
+    VkDescriptorSetLayoutBinding sceneBinding = vkinit::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+
+    VkDescriptorSetLayoutBinding bindings[] = { camBinding, sceneBinding };
 
     // All our bindings that go into our set
     VkDescriptorSetLayoutCreateInfo setInfo{
@@ -262,8 +260,8 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       .pNext = nullptr,
 
       .flags = 0,
-      .bindingCount = 1,
-      .pBindings = &binding,
+      .bindingCount = 2,
+      .pBindings = bindings,
     };
 
     VK_CHECK(vkCreateDescriptorSetLayout(device, &setInfo, nullptr, &descriptorLayout));
@@ -285,6 +283,9 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
     VK_CHECK(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool));
 
+    const auto sceneBufSize = MaxFramesInFlight * pad_uniform_buffer_size(sizeof GPUSceneData);
+    sceneBuffer = create_buffer(sceneBufSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
     for (int i = 0; i < MaxFramesInFlight; ++i)
     {
       frames[i].cameraBuffer = create_buffer(sizeof GPUCameraData, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -300,25 +301,27 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
       VK_CHECK(vkAllocateDescriptorSets(device, &allocInfo, &frames[i].descriptor));
 
-      // Now populate descriptor set to point to our camera buffer
-      VkDescriptorBufferInfo info{
+      // Now populate descriptor set binding 0 to point to our camera buffer
+      VkDescriptorBufferInfo camInfo{
         .buffer = frames[i].cameraBuffer.buffer,
         .offset = 0,
         .range = sizeof GPUCameraData,
       };
 
-      VkWriteDescriptorSet write{
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .pNext = nullptr,
-
-        .dstSet = frames[i].descriptor,
-        .dstBinding = 0, // We said we are setting binding to 0 so we set here too
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        .pBufferInfo = &info,
+      VkWriteDescriptorSet camWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, frames[i].descriptor, &camInfo, 0);
+      
+      // Now populate descriptor set binding 1 to point to our scene buffer
+      VkDescriptorBufferInfo sceneInfo{
+        .buffer = sceneBuffer.buffer,
+        .offset = pad_uniform_buffer_size(sizeof GPUSceneData) * i, //!!! set offset to our binding (i think?)
+        .range = sizeof GPUSceneData,
       };
 
-      vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+      VkWriteDescriptorSet sceneWrite = vkinit::write_descriptor_buffer(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, frames[i].descriptor, &sceneInfo, 1);
+
+      VkWriteDescriptorSet writes[] = { camWrite, sceneWrite };
+
+      vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
     }
   }
 
@@ -415,7 +418,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       if (!vkinit::load_shader_module("shaders/tri_mesh.vert.spv", device, meshVertShader))
         std::cout << "Failed to build triangle mesh vertex shader\n";
 
-      if (!vkinit::load_shader_module("shaders/tri_mesh.frag.spv", device, meshFragShader))
+      if (!vkinit::load_shader_module("shaders/default_lit.frag.spv", device, meshFragShader))
         std::cout << "Failed to build triangle mesh fragment shader\n";
 
       builder.shaderStages = {
@@ -624,6 +627,7 @@ void VulkanRenderer::cleanup()
 
   for (int i = 0; i < MaxFramesInFlight; ++i)
     vmaDestroyBuffer(allocator, frames[i].cameraBuffer.buffer, frames[i].cameraBuffer.alloc);
+  vmaDestroyBuffer(allocator, sceneBuffer.buffer, sceneBuffer.alloc);
   vkDestroyDescriptorPool(device, descriptorPool, nullptr);
   vkDestroyDescriptorSetLayout(device, descriptorLayout, nullptr);
 
@@ -680,6 +684,17 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
   vmaMapMemory(allocator, get_current_frame().cameraBuffer.alloc, &data);
   memcpy(data, &cam, sizeof GPUCameraData);
   vmaUnmapMemory(allocator, get_current_frame().cameraBuffer.alloc);
+
+  float framed = (frameNumber / 120.f);
+
+	scene.ambientColor = { sin(framed), 0.f, cos(framed), 1.f };
+
+	char* sceneData;
+	vmaMapMemory(allocator, sceneBuffer.alloc, (void**)&sceneData);
+	int frameIndex = frameNumber % MaxFramesInFlight;
+	sceneData += pad_uniform_buffer_size(sizeof GPUSceneData) * frameIndex;
+	memcpy(sceneData, &scene, sizeof GPUSceneData);
+	vmaUnmapMemory(allocator, sceneBuffer.alloc);
 
   Mesh* lastMesh = nullptr;
   Material* lastMat = nullptr;
@@ -740,4 +755,14 @@ AllocatedBuffer VulkanRenderer::create_buffer(size_t allocSize, VkBufferUsageFla
   VK_CHECK(vmaCreateBuffer(allocator, &bufInfo, &allocInfo, &buf.buffer, &buf.alloc, nullptr));
 
   return buf;
+}
+
+size_t VulkanRenderer::pad_uniform_buffer_size(size_t originalSize) const
+{
+	// Calculate required alignment based on minimum device offset alignment
+	const size_t minUboAlignment = gpuProperties.limits.minUniformBufferOffsetAlignment;
+	size_t alignedSize = originalSize;
+	if (minUboAlignment > 0) 
+		alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
+	return alignedSize;
 }
