@@ -43,6 +43,11 @@ struct GPUSceneData
 	alignas(16) glm::vec4 sunlightColor;
 };
 
+struct GPUObjectData
+{
+	alignas(16) glm::mat4 model;
+};
+
 struct FrameData
 {
   VkSemaphore present, render;
@@ -53,7 +58,9 @@ struct FrameData
 
   // Buffer that holds a GPUCameraData for use when rendering
   AllocatedBuffer cameraBuffer;
-  VkDescriptorSet descriptor;
+  VkDescriptorSet gDescriptor;
+  AllocatedBuffer objectBuffer;
+  VkDescriptorSet objectDescriptor;
 };
 
 class VulkanRenderer
@@ -109,6 +116,7 @@ private:
   FrameData frames[MaxFramesInFlight];
   
   VkDescriptorSetLayout descriptorLayout;
+  VkDescriptorSetLayout objectSetLayout;
   VkDescriptorPool descriptorPool;
 
   GPUSceneData scene;

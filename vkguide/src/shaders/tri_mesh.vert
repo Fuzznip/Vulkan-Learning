@@ -1,4 +1,4 @@
-#version 450
+#version 460
 #extension GL_KHR_vulkan_glsl : enable
 
 layout(location = 0) in vec3 pos;
@@ -14,6 +14,16 @@ layout(set = 0, binding = 0) uniform CameraBuffer
 	mat4 viewproj;
 } cameraData;
 
+struct ObjectData
+{
+  mat4 model;
+};
+
+layout(std140, set = 1, binding = 0) readonly buffer ObjectBuffer
+{
+  ObjectData objects[];
+} objectBuffer;
+
 layout(push_constant) uniform constants
 {
   vec4 data;
@@ -22,7 +32,7 @@ layout(push_constant) uniform constants
 
 void main()
 {
-  mat4 transform = cameraData.viewproj * PushConstants.render_matrix;
+  mat4 transform = cameraData.viewproj * objectBuffer.objects[gl_BaseInstance].model;
   gl_Position = transform * vec4(pos, 1.0f);
   outColor = color;
 }

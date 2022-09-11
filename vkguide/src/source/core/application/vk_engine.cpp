@@ -128,7 +128,7 @@ void VulkanEngine::run()
 
     if (time > 1.0)
     {
-      window.set_window_title(fmt::format("{}: fps ({}ms) frametime ({:.4})", name, (int)(1.0 / frametime), frametime));
+      window.set_window_title(fmt::format("{}: {} fps ({:.4}ms)", name, (int)(1.0 / frametime), frametime * 1000));
       time = 0.0;
     }
   }
