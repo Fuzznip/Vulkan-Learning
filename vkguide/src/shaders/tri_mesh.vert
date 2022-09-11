@@ -7,12 +7,27 @@ layout(location = 2) in vec3 color;
 
 layout(location = 0) out vec3 outColor;
 
-layout(set = 0, binding = 0) uniform CameraBuffer
+struct CameraData
 {
 	mat4 view;
 	mat4 proj;
 	mat4 viewproj;
-} cameraData;
+};
+
+struct Scene
+{
+	vec4 fogColor; // w is for exponent
+	vec4 fogDistances; // x for min, y for max, zw unused.
+	vec4 ambientColor;
+	vec4 sunlightDirection; // w for sun power
+	vec4 sunlightColor;
+};
+
+layout(set = 0, binding = 0) uniform SceneData
+{
+	CameraData camera;
+	Scene scene;
+} sceneData;
 
 struct ObjectData
 {
@@ -32,7 +47,7 @@ layout(push_constant) uniform constants
 
 void main()
 {
-  mat4 transform = cameraData.viewproj * objectBuffer.objects[gl_BaseInstance].model;
+  mat4 transform = sceneData.camera.viewproj * objectBuffer.objects[gl_BaseInstance].model;
   gl_Position = transform * vec4(pos, 1.0f);
   outColor = color;
 }

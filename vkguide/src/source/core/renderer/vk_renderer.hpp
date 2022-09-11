@@ -56,9 +56,6 @@ struct FrameData
   VkCommandPool cmdPool;
   VkCommandBuffer cmdBuffer;
 
-  // Buffer that holds a GPUCameraData for use when rendering
-  AllocatedBuffer cameraBuffer;
-  VkDescriptorSet gDescriptor;
   AllocatedBuffer objectBuffer;
   VkDescriptorSet objectDescriptor;
 };
@@ -114,13 +111,15 @@ private:
   std::vector<VkFramebuffer> framebuffers;
 
   FrameData frames[MaxFramesInFlight];
+
+  // Buffer that holds a GPUCameraData for use when rendering
+  GPUSceneData scene;
+  AllocatedBuffer sceneBuffer;
+  VkDescriptorSet sceneDescriptor;
   
   VkDescriptorSetLayout descriptorLayout;
   VkDescriptorSetLayout objectSetLayout;
   VkDescriptorPool descriptorPool;
-
-  GPUSceneData scene;
-  AllocatedBuffer sceneBuffer;
    
   VkPipeline trianglePipeline;
 	VkPipeline redTrianglePipeline;
