@@ -5,8 +5,8 @@ void VulkanSwapchain::init(VkPhysicalDevice gpu, VkDevice device, VkSurfaceKHR s
 {
   vkb::Swapchain vkbSwapchain = vkb::SwapchainBuilder{ gpu, device, surface }
     .use_default_format_selection()
-    //.set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
-    .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+    .set_desired_present_mode(VK_PRESENT_MODE_MAILBOX_KHR)
+    //.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
     .set_desired_extent(window.get_width(), window.get_height())
     .build()
     .value();

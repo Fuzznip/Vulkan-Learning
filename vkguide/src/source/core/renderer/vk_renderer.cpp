@@ -351,14 +351,17 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
     std::filesystem::path p = std::filesystem::current_path() / "assets";
     monkeyMesh = load_from_obj(p.string() + "\\monkey_smooth.obj", p.string());
+    thingMesh = load_from_obj(p.string() + "\\thing.obj", p.string());
 
     triangleMesh.upload(allocator);
     monkeyMesh.upload(allocator);
+    thingMesh.upload(allocator);
 
     // Note that we are copying them. 
     // Eventually we will delete the hardcoded monkey and triangle meshes, so it's no problem now.
     meshes["monkey"] = monkeyMesh;
     meshes["triangle"] = triangleMesh;
+    meshes["thing"] = thingMesh;
   }
 
   // init scene
@@ -379,10 +382,10 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       for (int y = -20; y <= 20; ++y)
       {
         auto t = glm::translate(glm::mat4{ 1.f }, glm::vec3{ x, 0.f, y });
-        auto s = glm::scale(glm::mat4{ 1.f }, glm::vec3{ 6.2f, 6.2f, 6.2f });
+        auto s = glm::scale(glm::mat4{ 1.f }, glm::vec3{ .2f, .2f, .2f });
 
         RenderObject tri{
-          .mesh = get_mesh("triangle"),
+          .mesh = get_mesh("thing"),
           .mat = get_material("defaultmesh"),
           .transform = t * s
         };
@@ -509,6 +512,7 @@ void VulkanRenderer::cleanup()
 
   vmaDestroyBuffer(allocator, triangleMesh.vertexBuffer.buffer, triangleMesh.vertexBuffer.alloc);
   vmaDestroyBuffer(allocator, monkeyMesh.vertexBuffer.buffer, monkeyMesh.vertexBuffer.alloc);
+  vmaDestroyBuffer(allocator, thingMesh.vertexBuffer.buffer, thingMesh.vertexBuffer.alloc);
 
   vkDestroyImageView(device, depthImageView, nullptr);
   vmaDestroyImage(allocator, depthImage.image, depthImage.alloc);
@@ -590,7 +594,7 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
     if (obj.mesh != lastMesh)
     {
       VkDeviceSize offset = 0;
-      vkCmdBindVertexBuffers(commandBuffer, 0, 1, &monkeyMesh.vertexBuffer.buffer, &offset);
+      vkCmdBindVertexBuffers(commandBuffer, 0, 1, &obj.mesh->vertexBuffer.buffer, &offset);
       lastMesh = obj.mesh;
     }
 
