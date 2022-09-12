@@ -38,10 +38,18 @@ VertexInputDescription Vertex::get_vertex_description()
     .offset = offsetof(Vertex, color)
   };
 
+  VkVertexInputAttributeDescription uvAttrib{
+    .location = 3,
+    .binding = 0,
+    .format = VK_FORMAT_R32G32_SFLOAT,
+    .offset = offsetof(Vertex, uv)
+  };
+
   vid.attributes = {
     posAttrib,
     normalAttrib,
-    colorAttrib
+    colorAttrib,
+    uvAttrib
   };
 
   return vid;
@@ -52,6 +60,9 @@ VertexInputDescription Vertex::get_vertex_description()
 // TODO: Hook up to logging once implemented
 Mesh load_from_obj(const std::string& filepath, const std::string& mtlDir)
 {
+  std::cout << fmt::format("Loading mesh: {}\n", filepath);
+  const auto t1 = std::chrono::high_resolution_clock::now();
+
   Mesh m{};
 
   tinyobj::attrib_t attrib;
@@ -99,6 +110,10 @@ Mesh load_from_obj(const std::string& filepath, const std::string& mtlDir)
 				tinyobj::real_t ny = attrib.normals[3ull * idx.normal_index + 1];
 				tinyobj::real_t nz = attrib.normals[3ull * idx.normal_index + 2];
 
+        //vertex normal
+        tinyobj::real_t ux = attrib.texcoords[2ull * idx.texcoord_index + 0];
+				tinyobj::real_t uy = attrib.texcoords[2ull * idx.texcoord_index + 1];
+
         //copy it into our vertex
 				Vertex new_vert;
 				new_vert.position.x = vx;
@@ -112,12 +127,18 @@ Mesh load_from_obj(const std::string& filepath, const std::string& mtlDir)
         //we are setting the vertex color as the vertex normal. This is just for display purposes
         new_vert.color = new_vert.normal;
 
+        new_vert.uv.x = ux;
+        new_vert.uv.y = 1 - uy; // invert because Vulkan
+
 				m.vertices.push_back(new_vert);
 			}
 
 			index_offset += fv;
 		}
 	}
+  
+    const auto t2 = std::chrono::high_resolution_clock::now();
+    std::cout << fmt::format("Successfully loaded mesh [{}] in {:.4} seconds\n", filepath, std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1).count() / 1000000000.0);
 
   return m;
 }

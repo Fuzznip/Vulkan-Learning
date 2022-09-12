@@ -4,8 +4,10 @@
 layout(location = 0) in vec3 pos;
 layout(location = 1) in vec3 norm;
 layout(location = 2) in vec3 color;
+layout(location = 3) in vec2 uv;
 
 layout(location = 0) out vec3 outColor;
+layout(location = 1) out vec2 texCoords;
 
 struct CameraData
 {
@@ -50,4 +52,5 @@ void main()
   mat4 transform = sceneData.camera.viewproj * objectBuffer.objects[gl_BaseInstance].model;
   gl_Position = transform * vec4(pos, 1.0f);
   outColor = color;
+	texCoords = uv;
 }

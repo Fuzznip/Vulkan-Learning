@@ -61,6 +61,7 @@ target_include_directories(GLM SYSTEM INTERFACE ${ExternalDirectory}/glm)
 include_directories(SYSTEM
   ${ExternalDirectory}/glm
   ${ExternalDirectory}/tinyobjloader
+  ${ExternalDirectory}/stb
 )
 
 # Compile shaders on build

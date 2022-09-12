@@ -18,6 +18,13 @@ struct Material
 {
   VkPipeline pipeline;
   VkPipelineLayout layout;
+  VkDescriptorSet texture = VK_NULL_HANDLE;
+};
+
+struct Texture
+{
+  AllocatedImage image;
+  VkImageView view;
 };
 
 struct RenderObject
@@ -79,6 +86,12 @@ public:
   void cleanup();
   
 ////
+  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+
+  void immediate_submit(std::function<void(VkCommandBuffer)>&& func);
+
+  VmaAllocator allocator;
+
   glm::vec3 camPos{ 0.f, -6.f, -10.f };
   glm::vec3 camFwd{ 0.f, 0.f, -1.f };
 
@@ -91,13 +104,7 @@ private:
   void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 
   FrameData& get_current_frame();
-
-  AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
   size_t pad_uniform_buffer_size(size_t originalSize) const;
-
-  void immediate_submit(std::function<void(VkCommandBuffer)>&& func);
-
-  VmaAllocator allocator;
 
   VkInstance instance;
   VkPhysicalDevice gpu;
@@ -127,22 +134,28 @@ private:
   AllocatedBuffer sceneBuffer;
   VkDescriptorSet sceneDescriptor;
   
+	VkSampler blockySampler;
+  
   VkDescriptorSetLayout descriptorLayout;
   VkDescriptorSetLayout objectSetLayout;
+  VkDescriptorSetLayout singleTextureSetLayout;
   VkDescriptorPool descriptorPool;
    
   VkPipeline trianglePipeline;
 	VkPipeline redTrianglePipeline;
   VkPipeline meshPipeline;
+  VkPipeline texturedPipeline;
   Mesh triangleMesh;
   Mesh monkeyMesh;
   Mesh thingMesh;
   VkPipelineLayout pipelineLayout;
 	VkPipelineLayout meshPipelineLayout;
+	VkPipelineLayout texturedPipelineLayout;
 
   std::vector<RenderObject> objects;
   std::unordered_map<std::string, Material> materials;
   std::unordered_map<std::string, Mesh> meshes;
+  std::unordered_map<std::string, Texture> textures;
 
   UploadContext upload;
 
