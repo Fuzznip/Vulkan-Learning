@@ -31,13 +31,15 @@ void VulkanEngine::run()
   SDL_Event e;
   bool quit = false;
   double time = 0.0;
-  auto frametime = 0.016;
           
   float pitch = 0.0f, yaw = -90.0f;
 
   // main loop
   while (!quit)
   {
+    constexpr glm::vec3 up{ 0.f, 1.f, 0.f };
+    glm::vec3 right = glm::cross(basicRenderer.camFwd, up);
+
     auto t1 = std::chrono::high_resolution_clock::now();
     // Handle events on queue
     while (SDL_PollEvent(&e) != 0)
@@ -76,24 +78,23 @@ void VulkanEngine::run()
         if (constrainMouse && SDL_GetWindowFlags(window.window) & SDL_WindowFlags::SDL_WINDOW_INPUT_FOCUS)
         {
           float xDelta = e.motion.xrel;
-          float yDelta = -e.motion.yrel;
+          float yDelta = e.motion.yrel;
 
-          xDelta *= .3f;
-          yDelta *= .3f;
-          
-          yaw += xDelta;
-          pitch += yDelta;
+          xDelta *= .003f;
+          yDelta *= .003f;
 
-          if (pitch > 89.0f)
-            pitch = 89.0f;
-          if (pitch < -89.0f)
-            pitch = -89.0f;
+          float yawDelta = xDelta;
+          float pitchDelta = yDelta;
 
-          glm::vec3 direction;
-          direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-          direction.y = sin(glm::radians(pitch));
-          direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-          basicRenderer.camFwd = glm::normalize(direction);
+          glm::vec3 forwardNoPitch = glm::normalize(glm::vec3{ basicRenderer.camFwd.x, 0.f, basicRenderer.camFwd.z });
+
+          // Clamp camera to 80 degrees y
+          if(glm::acos(glm::dot(forwardNoPitch, basicRenderer.camFwd)) > glm::radians(80.f))
+            if((basicRenderer.camFwd.y < 0.f && pitchDelta > 0.f) || (basicRenderer.camFwd.y > 0.f && pitchDelta < 0.f))
+              pitchDelta = 0.f;
+
+          glm::quat q = glm::normalize(glm::cross(glm::angleAxis(-pitchDelta, right), glm::angleAxis(-yawDelta, up)));
+          basicRenderer.camFwd = glm::normalize(glm::rotate(q, basicRenderer.camFwd));
         }
       } break;
       default:
@@ -103,21 +104,18 @@ void VulkanEngine::run()
 
     const uint8_t* keystates = SDL_GetKeyboardState(nullptr);
 
-    auto camRight = glm::normalize(glm::cross(basicRenderer.camFwd, glm::vec3{ 0.f, 1.f, 0.f }));
-    auto camUp = glm::normalize(glm::cross(basicRenderer.camFwd, camRight));
-
     if (keystates[SDL_SCANCODE_W])
       basicRenderer.camPos += (float)(15.f * frametime) * basicRenderer.camFwd;
     if (keystates[SDL_SCANCODE_A])
-      basicRenderer.camPos -= (float)(15.f * frametime) * camRight;
+      basicRenderer.camPos -= (float)(15.f * frametime) * right;
     if (keystates[SDL_SCANCODE_S])
       basicRenderer.camPos -= (float)(15.f * frametime) * basicRenderer.camFwd;
     if (keystates[SDL_SCANCODE_D])
-      basicRenderer.camPos += (float)(15.f * frametime) * camRight;
+      basicRenderer.camPos += (float)(15.f * frametime) * right;
     if (keystates[SDL_SCANCODE_E])
-      basicRenderer.camPos -= (float)(15.f * frametime) * camUp;
+      basicRenderer.camPos += (float)(15.f * frametime) * up;
     if (keystates[SDL_SCANCODE_Q])
-      basicRenderer.camPos += (float)(15.f * frametime) * camUp;
+      basicRenderer.camPos -= (float)(15.f * frametime) * up;
 
     draw();
     auto t2 = std::chrono::high_resolution_clock::now();
@@ -141,5 +139,5 @@ void VulkanEngine::init_renderer()
 
 void VulkanEngine::draw()
 {
-  basicRenderer.draw(window);
+  basicRenderer.draw(frametime);
 }

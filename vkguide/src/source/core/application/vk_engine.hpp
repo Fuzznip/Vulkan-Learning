@@ -23,4 +23,6 @@ private:
 
   bool isInitialized = false;
   bool constrainMouse = false;
+  
+  double frametime = 0.016;
 };

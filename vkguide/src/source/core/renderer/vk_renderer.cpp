@@ -546,7 +546,7 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
   }
 }
 
-void VulkanRenderer::draw(const Window& window)
+void VulkanRenderer::draw(double dt)
 {
   const FrameData& frame = get_current_frame();
 
@@ -572,7 +572,7 @@ void VulkanRenderer::draw(const Window& window)
     VK_CHECK(vkBeginCommandBuffer(frame.cmdBuffer, &cmdBegin));
     {
       VkClearValue clearColor{
-        .color = {{ 0.f, 0.f, std::abs(std::sin(frameNumber / 120.f)), 1.f }}
+        .color = {{ 0.f, 0.f, std::abs(std::sin((float)t / 120.f)), 1.f }}
       };
 
       VkClearValue depthClear{
@@ -640,6 +640,7 @@ void VulkanRenderer::draw(const Window& window)
   VK_CHECK(vkQueuePresentKHR(graphicsQueue, &presentInfo));
 
   frameNumber += 1;
+  t += dt;
 }
 
 void VulkanRenderer::swap_pipeline()
@@ -808,9 +809,7 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
     .viewproj = projection * view,
   };
 
-  float framed = (frameNumber / 120.f);
-
-	scene.ambientColor = { sin(framed), 0.f, cos(framed), 1.f };
+	scene.ambientColor = { sin(t), 0.f, cos(t), 1.f };
 
 	int frameIndex = frameNumber % MaxFramesInFlight;
 

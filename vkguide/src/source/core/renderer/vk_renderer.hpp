@@ -72,7 +72,7 @@ class VulkanRenderer
 public:
   void init(const std::string& appName, const Window& window, bool enableValidationLayers);
 
-  void draw(const Window& window);
+  void draw(double dt);
 
   void swap_pipeline();
 
@@ -151,6 +151,7 @@ private:
   const uint64_t timeout = 1000000000; // 1 second
 
   uint64_t frameNumber = 0;
+  double t = 0;
 
   int shader = 0;
 };
