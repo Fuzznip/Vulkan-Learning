@@ -102,6 +102,14 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
       VK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &frame.cmdBuffer));
     }
+
+    auto uploadPoolInfo = vkinit::command_pool_create_info(graphicsQueueFamily);
+
+    VK_CHECK(vkCreateCommandPool(device, &uploadPoolInfo, nullptr, &upload.pool));
+
+    auto uploadAllocInfo = vkinit::command_buffer_allocate_info(upload.pool, 1);
+
+    VK_CHECK(vkAllocateCommandBuffers(device, &uploadAllocInfo, &upload.buffer));
   }
 
   // init render pass
@@ -251,6 +259,15 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
       VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame.present));
       VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frame.render));
     }
+
+    VkFenceCreateInfo uploadFenceInfo{
+      .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+      .pNext = nullptr,
+
+      .flags = 0
+    };
+
+    VK_CHECK(vkCreateFence(device, &uploadFenceInfo, nullptr, &upload.upload));
   }
   
   // init descriptors
@@ -483,9 +500,9 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
     monkeyMesh = load_from_obj(p.string() + "\\monkey_smooth.obj", p.string());
     thingMesh = load_from_obj(p.string() + "\\thing.obj", p.string());
 
-    triangleMesh.upload(allocator);
-    monkeyMesh.upload(allocator);
-    thingMesh.upload(allocator);
+    upload_mesh(triangleMesh);
+    upload_mesh(monkeyMesh);
+    upload_mesh(thingMesh);
 
     // Note that we are copying them. 
     // Eventually we will delete the hardcoded monkey and triangle meshes, so it's no problem now.
@@ -531,7 +548,6 @@ void VulkanRenderer::init(const std::string& appName, const Window& window, bool
 
 void VulkanRenderer::draw(const Window& window)
 {
-  constexpr uint64_t timeout = std::numeric_limits<uint64_t>::max();
   const FrameData& frame = get_current_frame();
 
   VK_CHECK(vkWaitForFences(device, 1, &frame.fence, VK_TRUE, timeout));
@@ -633,11 +649,9 @@ void VulkanRenderer::swap_pipeline()
 
 void VulkanRenderer::cleanup()
 {
-  constexpr auto timeout = 1000000000; // 1 second (in nanoseconds)
-
   for (int i = 0; i < MaxFramesInFlight; ++i)
   {
-    vkWaitForFences(device, 1, &frames[i].fence, VK_TRUE, 1000000000);
+    vkWaitForFences(device, 1, &frames[i].fence, VK_TRUE, timeout);
     vkDestroyFence(device, frames[i].fence, nullptr);
 
     vkDestroySemaphore(device, frames[i].render, nullptr);
@@ -645,6 +659,11 @@ void VulkanRenderer::cleanup()
     
     vkDestroyCommandPool(device, frames[i].cmdPool, nullptr);
   }
+
+  // No need to wait since this is used for immediate pushes and is waited on immediately anyways
+  vkDestroyFence(device, upload.upload, nullptr);
+
+  vkDestroyCommandPool(device, upload.pool, nullptr);
 
   vmaDestroyBuffer(allocator, triangleMesh.vertexBuffer.buffer, triangleMesh.vertexBuffer.alloc);
   vmaDestroyBuffer(allocator, monkeyMesh.vertexBuffer.buffer, monkeyMesh.vertexBuffer.alloc);
@@ -704,6 +723,78 @@ Mesh* VulkanRenderer::get_mesh(const std::string& name)
   return nullptr;
 }
 
+void VulkanRenderer::upload_mesh(Mesh& mesh)
+{
+  const uint32_t bufferSize = mesh.vertices.size() * sizeof Vertex;
+
+  VkBufferCreateInfo stagingBufferInfo{
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .pNext = nullptr,
+
+    .size = bufferSize,
+    .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+  };
+
+  VmaAllocationCreateInfo stagingAllocInfo{
+    .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+    .usage = VMA_MEMORY_USAGE_AUTO,
+  };
+
+  AllocatedBuffer tempStagingBuffer;
+
+  // Create staging buffer
+  VK_CHECK(vmaCreateBuffer(
+    allocator,
+    &stagingBufferInfo,
+    &stagingAllocInfo,
+    &tempStagingBuffer.buffer,
+    &tempStagingBuffer.alloc,
+    nullptr
+  ));
+
+  // Now that we have a buffer, copy data over into that buffer
+  void* data;
+  vmaMapMemory(allocator, tempStagingBuffer.alloc, &data);
+  memcpy(data, mesh.vertices.data(), bufferSize);
+  vmaUnmapMemory(allocator, tempStagingBuffer.alloc);
+
+  // Now transfer data over to GPU buffer
+  VkBufferCreateInfo gpuBufferInfo{
+    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+    .pNext = nullptr,
+
+    .size = bufferSize,
+    .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+  };
+
+  VmaAllocationCreateInfo gpuAllocInfo{
+    .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+    .usage = VMA_MEMORY_USAGE_AUTO
+  };
+
+  // Create staging buffer
+  VK_CHECK(vmaCreateBuffer(
+    allocator,
+    &gpuBufferInfo,
+    &gpuAllocInfo,
+    &mesh.vertexBuffer.buffer,
+    &mesh.vertexBuffer.alloc,
+    nullptr
+  ));
+
+  immediate_submit([=](VkCommandBuffer cmd){
+    VkBufferCopy copy{
+      .srcOffset = 0,
+      .dstOffset = 0,
+      .size = bufferSize,
+    };
+
+    vkCmdCopyBuffer(cmd, tempStagingBuffer.buffer, mesh.vertexBuffer.buffer, 1, &copy);
+  });
+
+  vmaDestroyBuffer(allocator, tempStagingBuffer.buffer, tempStagingBuffer.alloc);
+}
+
 void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int count)
 {
   glm::mat4 view = glm::lookAt(camPos, camPos + camFwd, glm::vec3{ 0.f, 1.f, 0.f });
@@ -726,6 +817,16 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
   uint8_t* data;
   vmaMapMemory(allocator, sceneBuffer.alloc, (void**)&data);
 
+  // Not sure at all how this needs to be offset but this works now
+  // (but so does using pad uniform buffer size...)
+
+  // cam + scene data = 272 bytes
+  // Cam Pad = 256
+  const int camData = pad_uniform_buffer_size(sizeof GPUCameraData);
+  // Scene Pad = 256
+  const int sceneData = pad_uniform_buffer_size(sizeof GPUSceneData);
+  // Cam + Scene Pad = 512
+  const int camAndSceneData = pad_uniform_buffer_size(sizeof GPUCameraData + sizeof GPUSceneData);
   data += (sizeof GPUCameraData + sizeof GPUSceneData) * frameIndex;
   memcpy(data, &cam, sizeof GPUCameraData);
   
@@ -818,4 +919,27 @@ size_t VulkanRenderer::pad_uniform_buffer_size(size_t originalSize) const
 	if (minUboAlignment > 0) 
 		alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	return alignedSize;
+}
+
+void VulkanRenderer::immediate_submit(std::function<void(VkCommandBuffer)>&& func)
+{
+  auto cmd = upload.buffer;
+
+  // We will use this command buffer exactly once before resetting, so we tell Vulkan that
+  auto beginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+  VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
+
+  func(cmd);
+
+  VK_CHECK(vkEndCommandBuffer(cmd));
+
+  auto submit = vkinit::submit_info(&cmd);
+
+  VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submit, upload.upload));
+
+  vkWaitForFences(device, 1, &upload.upload, VK_TRUE, timeout);
+  vkResetFences(device, 1, &upload.upload);
+
+  vkResetCommandPool(device, upload.pool, 0);
 }

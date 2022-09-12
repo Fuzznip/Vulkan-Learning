@@ -121,33 +121,3 @@ Mesh load_from_obj(const std::string& filepath, const std::string& mtlDir)
 
   return m;
 }
-
-void Mesh::upload(VmaAllocator allocator)
-{
-  VkBufferCreateInfo bufferInfo{
-    .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-    .pNext = nullptr,
-
-    .size = vertices.size() * sizeof Vertex,
-    .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-  };
-
-  VmaAllocationCreateInfo allocInfo{
-    .usage = VMA_MEMORY_USAGE_CPU_TO_GPU
-  };
-
-  VK_CHECK(vmaCreateBuffer(
-    allocator,
-    &bufferInfo,
-    &allocInfo,
-    &vertexBuffer.buffer,
-    &vertexBuffer.alloc,
-    nullptr
-  ));
-
-  // Now that we have a buffer, copy data over into that buffer
-  void* data;
-  vmaMapMemory(allocator, vertexBuffer.alloc, &data);
-  memcpy(data, vertices.data(), vertices.size() * sizeof Vertex);
-  vmaUnmapMemory(allocator, vertexBuffer.alloc);
-}

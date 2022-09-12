@@ -60,6 +60,13 @@ struct FrameData
   VkDescriptorSet objectDescriptor;
 };
 
+struct UploadContext
+{
+  VkFence upload;
+  VkCommandPool pool;
+  VkCommandBuffer buffer;
+};
+
 class VulkanRenderer
 {
 public:
@@ -79,6 +86,7 @@ private:
   Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
   Material* get_material(const std::string& name);
   Mesh* get_mesh(const std::string& name);
+  void upload_mesh(Mesh& mesh);
 
   void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 
@@ -86,6 +94,8 @@ private:
 
   AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
   size_t pad_uniform_buffer_size(size_t originalSize) const;
+
+  void immediate_submit(std::function<void(VkCommandBuffer)>&& func);
 
   VmaAllocator allocator;
 
@@ -134,7 +144,11 @@ private:
   std::unordered_map<std::string, Material> materials;
   std::unordered_map<std::string, Mesh> meshes;
 
+  UploadContext upload;
+
   VkDebugUtilsMessengerEXT debugMessenger; // Vulkan debug output handle
+  
+  const uint64_t timeout = 1000000000; // 1 second
 
   uint64_t frameNumber = 0;
 
