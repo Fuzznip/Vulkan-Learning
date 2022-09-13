@@ -125,7 +125,7 @@ Mesh load_from_obj(const std::string& filepath, const std::string& mtlDir)
         new_vert.normal.z = nz;
 
         //we are setting the vertex color as the vertex normal. This is just for display purposes
-        new_vert.color = new_vert.normal;
+        new_vert.color = glm::vec3(new_vert.uv, 0.5f);
 
         new_vert.uv.x = ux;
         new_vert.uv.y = 1 - uy; // invert because Vulkan

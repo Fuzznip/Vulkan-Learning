@@ -9,7 +9,7 @@ void VulkanEngine::init()
   // We initialize SDL and create a window with it. 
   SDL_Init(SDL_INIT_VIDEO);
 
-  window.init(name, 800, 600);
+  window.init(name, 1700, 900);
 
   init_renderer();
   

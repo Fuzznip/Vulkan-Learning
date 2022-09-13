@@ -923,7 +923,7 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
 {
   glm::mat4 view = glm::lookAt(camPos, camPos + camFwd, glm::vec3{ 0.f, 1.f, 0.f });
 
-  glm::mat4 projection = glm::perspective(glm::radians(70.f), 800.f / 600.f, 0.1f, 200.0f);
+  glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
   projection[1][1] *= -1; // flip y axis for vulkan
 
   GPUCameraData cam{
@@ -963,12 +963,18 @@ void VulkanRenderer::draw_objects(VkCommandBuffer cmd, RenderObject* first, int 
 
   GPUObjectData* objectSSBO = reinterpret_cast<GPUObjectData*>(objectData);
 
-  Mesh* lastMesh = nullptr;
-  Material* lastMat = nullptr;
   for (int i = 0; i < count; ++i)
   {
     RenderObject& obj = first[i];
     objectSSBO[i].model = obj.transform;
+  }
+  
+  Mesh* lastMesh = nullptr;
+  Material* lastMat = nullptr;
+
+  for (int i = 0; i < count; ++i)
+  {
+    RenderObject& obj = first[i];
 
     if (!obj.mat && !obj.mesh)
       continue;
